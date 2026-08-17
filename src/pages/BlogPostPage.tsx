@@ -69,7 +69,7 @@ export default function BlogPostPage() {
       setFeedback("Photo optimisée ! Cliquez sur 'Enregistrer' pour valider.");
     } catch (err) {
       console.error("Erreur lors de l'upload:", err);
-      alert("Erreur lors du traitement de la photo.");
+      alert("Erreur lors du traitement de la photo : " + (err instanceof Error ? err.message : "Le format de fichier n'est pas supporté (ex: les fichiers HEIC d'iPhone doivent être convertis en JPEG/PNG avant d'être envoyés)."));
     } finally {
       setUploading(false);
     }

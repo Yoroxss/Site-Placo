@@ -154,6 +154,17 @@ export default function Admin() {
     }
   };
 
+    const getErrorMessage = (error: any): string => {
+    if (error instanceof Error) return error.message;
+    if (error && typeof error === "object") {
+      if (error.isTrusted) {
+        return "Le format de l'image n'est pas supporté (ex: les fichiers HEIC d'iPhone doivent être convertis en JPEG/PNG ou pris en mode 'Le plus compatible' avant l'envoi) ou le fichier est corrompu. Veuillez utiliser une image JPEG, PNG ou WebP.";
+      }
+      return JSON.stringify(error);
+    }
+    return String(error);
+  };
+
   const resizeImage = (file: File, maxWidth = 1920, maxHeight = 1920, quality = 0.85): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -165,14 +176,12 @@ export default function Admin() {
           resolve(base64);
           return;
         }
-
         const img = new Image();
         img.src = base64;
         img.onload = () => {
           const canvas = document.createElement('canvas');
           let width = img.width;
           let height = img.height;
-
           if (width > height) {
             if (width > maxWidth) {
               height *= maxWidth / width;
@@ -190,9 +199,15 @@ export default function Admin() {
           ctx?.drawImage(img, 0, 0, width, height);
           resolve(canvas.toDataURL('image/webp', quality));
         };
-        img.onerror = (error) => reject(error);
+        img.onerror = (err) => {
+          console.error("Image load error:", err);
+          reject(new Error("Le format ou l'encodage de cette image n'est pas supporté par votre navigateur (ex: les fichiers HEIC d'iPhone doivent être convertis en JPEG/PNG ou pris en mode 'Le plus compatible' avant l'envoi)."));
+        };
       };
-      reader.onerror = (error) => reject(error);
+      reader.onerror = (err) => {
+        console.error("FileReader error:", err);
+        reject(new Error("Erreur de lecture du fichier. Veuillez réessayer avec une autre image."));
+      };
     });
   };
 
@@ -269,7 +284,7 @@ export default function Admin() {
       });
     } catch (error) {
       console.error("Upload error:", error);
-      setFeedback({ message: "Erreur d'upload: " + (error instanceof Error ? error.message : JSON.stringify(error)), type: 'error' });
+      setFeedback({ message: "Erreur d'upload: " + getErrorMessage(error), type: 'error' });
     } finally {
       setUploading(false);
       setUploadDirectives("");
@@ -385,7 +400,7 @@ export default function Admin() {
       setFeedback({ message: "Images Avant/Après ajoutées avec succès !", type: 'success' });
     } catch (error) {
       console.error("Upload error:", error);
-      setFeedback({ message: "Erreur d'upload: " + (error instanceof Error ? error.message : JSON.stringify(error)), type: 'error' });
+      setFeedback({ message: "Erreur d'upload: " + getErrorMessage(error), type: 'error' });
     } finally {
       setBaUploading(false);
     }
@@ -461,7 +476,7 @@ export default function Admin() {
       setFeedback({ message: "Avis client modifié et enregistré avec succès !", type: 'success' });
     } catch (error) {
       console.error("Error saving review edit:", error);
-      setFeedback({ message: "Erreur lors de la modification de l'avis: " + (error instanceof Error ? error.message : JSON.stringify(error)), type: 'error' });
+      setFeedback({ message: "Erreur lors de la modification de l'avis: " + getErrorMessage(error), type: 'error' });
     } finally {
       setRevEditSaving(false);
     }
@@ -485,7 +500,7 @@ export default function Admin() {
       setFeedback({ message: "Les 3 avis exemples ont été enregistrés dans votre base ! Vous pouvez maintenant les modifier ou supprimer individuellement.", type: 'success' });
     } catch (error) {
       console.error("Error seeding reviews:", error);
-      setFeedback({ message: "Erreur lors de l'import des avis: " + (error instanceof Error ? error.message : JSON.stringify(error)), type: 'error' });
+      setFeedback({ message: "Erreur lors de l'import des avis: " + getErrorMessage(error), type: 'error' });
     } finally {
       setRevAdding(false);
     }
@@ -515,7 +530,7 @@ export default function Admin() {
       setFeedback({ message: "Avis client ajouté avec succès !", type: 'success' });
     } catch (error) {
       console.error("Error creating review:", error);
-      setFeedback({ message: "Erreur lors de l'ajout de l'avis: " + (error instanceof Error ? error.message : JSON.stringify(error)), type: 'error' });
+      setFeedback({ message: "Erreur lors de l'ajout de l'avis: " + getErrorMessage(error), type: 'error' });
     } finally {
       setRevAdding(false);
     }
@@ -552,7 +567,7 @@ export default function Admin() {
       setFeedback({ message: "Élément supprimé avec succès.", type: 'success' });
     } catch (error) {
       console.error("Delete error:", error);
-      setFeedback({ message: "Erreur de suppression: " + (error instanceof Error ? error.message : JSON.stringify(error)), type: 'error' });
+      setFeedback({ message: "Erreur de suppression: " + getErrorMessage(error), type: 'error' });
     } finally {
       setItemToDelete(null);
     }

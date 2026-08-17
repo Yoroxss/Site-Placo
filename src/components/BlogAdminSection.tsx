@@ -146,7 +146,7 @@ export default function BlogAdminSection() {
       setTimeout(() => setFeedback(null), 3000);
     } catch (err) {
       console.error("Erreur lors de l'optimisation de l'image:", err);
-      alert("Erreur lors de l'envoi de l'image.");
+      alert("Erreur lors de l'envoi de l'image : " + (err instanceof Error ? err.message : "Le format de fichier n'est pas supporté (ex: les fichiers HEIC d'iPhone doivent être convertis en JPEG/PNG avant d'être envoyés)."));
     } finally {
       setUploadingImage(false);
     }

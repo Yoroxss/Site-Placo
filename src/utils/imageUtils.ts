@@ -26,7 +26,7 @@ export function resizeImage(file: File, maxWidth = 1920, maxHeight = 1920, quali
         } else {
           if (height > maxHeight) {
             width *= maxHeight / height;
-            width = maxHeight;
+            height = maxHeight;
           }
         }
 
@@ -42,8 +42,14 @@ export function resizeImage(file: File, maxWidth = 1920, maxHeight = 1920, quali
           resolve(base64);
         }
       };
-      img.onerror = (err) => reject(err);
+      img.onerror = (err) => {
+        console.error("Image decoding error:", err);
+        reject(new Error("Le format ou l'encodage de cette image n'est pas supporté par votre navigateur (ex: les fichiers HEIC d'iPhone doivent être convertis en JPEG/PNG ou pris en mode 'Le plus compatible' avant l'envoi)."));
+      };
     };
-    reader.onerror = (err) => reject(err);
+    reader.onerror = (err) => {
+      console.error("FileReader error:", err);
+      reject(new Error("Erreur lors de la lecture du fichier. Veuillez réessayer avec une autre image."));
+    };
   });
 }
