@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://www.plaquiste-arcachon.fr/sitemap.xml

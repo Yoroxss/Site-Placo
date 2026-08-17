@@ -1,0 +1,146 @@
+{
+  "entities": {
+    "QuoteRequest": {
+      "title": "Quote Request",
+      "description": "A quote request submitted by a customer.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "maxLength": 100 },
+        "phone": { "type": "string", "maxLength": 20 },
+        "email": { "type": "string", "maxLength": 100 },
+        "projectType": { "type": "string", "maxLength": 50 },
+        "message": { "type": "string", "maxLength": 2000 },
+        "createdAt": { "type": "string", "description": "Timestamp" }
+      },
+      "required": ["name", "phone", "projectType", "createdAt"]
+    },
+    "SiteContent": {
+      "title": "Site Content",
+      "description": "Dynamic text content for the website.",
+      "type": "object",
+      "properties": {
+        "heroTitle": { "type": "string", "maxLength": 200 },
+        "heroSubtitle": { "type": "string", "maxLength": 500 },
+        "aboutText1": { "type": "string", "maxLength": 2000 },
+        "aboutText2": { "type": "string", "maxLength": 2000 },
+        "updatedAt": { "type": "string", "description": "Timestamp" }
+      }
+    },
+    "Review": {
+      "title": "Customer Review",
+      "description": "Customer feedback and reviews for Parat & Bouey.",
+      "type": "object",
+      "properties": {
+        "author": { "type": "string", "maxLength": 100 },
+        "city": { "type": "string", "maxLength": 100 },
+        "rating": { "type": "number" },
+        "projectType": { "type": "string", "maxLength": 100 },
+        "comment": { "type": "string", "maxLength": 2000 },
+        "verified": { "type": "boolean" },
+        "date": { "type": "string" },
+        "createdAt": { "type": "string", "description": "Timestamp" }
+      },
+      "required": ["author", "comment"]
+    },
+    "Article": {
+      "title": "Blog Article",
+      "description": "Technical advice and SEO articles for homeowners in Bassin d'Arcachon.",
+      "type": "object",
+      "properties": {
+        "slug": { "type": "string", "maxLength": 150 },
+        "title": { "type": "string", "maxLength": 250 },
+        "excerpt": { "type": "string", "maxLength": 500 },
+        "content": { "type": "string", "maxLength": 10000 },
+        "category": { "type": "string", "maxLength": 100 },
+        "readingTime": { "type": "string", "maxLength": 50 },
+        "date": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "createdAt": { "type": "string", "description": "Timestamp" }
+      },
+      "required": ["slug", "title", "excerpt", "content"]
+    },
+    "CaddieScan": {
+      "title": "Caddie Token Scan",
+      "description": "Visitor scan tracking from laser engraved caddie tokens or marketing sources.",
+      "type": "object",
+      "properties": {
+        "source": { "type": "string", "maxLength": 100 },
+        "rawUrl": { "type": "string", "maxLength": 500 },
+        "path": { "type": "string", "maxLength": 200 },
+        "device": { "type": "string", "maxLength": 50 },
+        "browser": { "type": "string", "maxLength": 100 },
+        "os": { "type": "string", "maxLength": 100 },
+        "referrer": { "type": "string", "maxLength": 500 },
+        "screen": { "type": "string", "maxLength": 50 },
+        "city": { "type": "string", "maxLength": 100 },
+        "region": { "type": "string", "maxLength": 100 },
+        "department": { "type": "string", "maxLength": 100 },
+        "postalCode": { "type": "string", "maxLength": 20 },
+        "country": { "type": "string", "maxLength": 100 },
+        "countryCode": { "type": "string", "maxLength": 10 },
+        "latitude": { "type": "number" },
+        "longitude": { "type": "number" },
+        "isp": { "type": "string", "maxLength": 100 },
+        "createdAt": { "type": "string", "description": "Timestamp" }
+      },
+      "required": ["source"]
+    },
+    "SiteVisit": {
+      "title": "Site Visitor & Traffic Analytics",
+      "description": "Full website traffic circulation tracking with geolocated visitors, pages, devices, and actions.",
+      "type": "object",
+      "properties": {
+        "sessionId": { "type": "string", "maxLength": 100 },
+        "page": { "type": "string", "maxLength": 200 },
+        "pageTitle": { "type": "string", "maxLength": 200 },
+        "referrer": { "type": "string", "maxLength": 200 },
+        "referrerUrl": { "type": "string", "maxLength": 500 },
+        "device": { "type": "string", "maxLength": 50 },
+        "browser": { "type": "string", "maxLength": 100 },
+        "os": { "type": "string", "maxLength": 100 },
+        "screen": { "type": "string", "maxLength": 50 },
+        "city": { "type": "string", "maxLength": 100 },
+        "region": { "type": "string", "maxLength": 100 },
+        "department": { "type": "string", "maxLength": 100 },
+        "postalCode": { "type": "string", "maxLength": 20 },
+        "country": { "type": "string", "maxLength": 100 },
+        "countryCode": { "type": "string", "maxLength": 10 },
+        "latitude": { "type": "number" },
+        "longitude": { "type": "number" },
+        "isp": { "type": "string", "maxLength": 100 },
+        "campaign": { "type": "string", "maxLength": 100 },
+        "action": { "type": "string", "maxLength": 100 },
+        "durationSec": { "type": "number" },
+        "isNewVisitor": { "type": "boolean" },
+        "createdAt": { "type": "string", "description": "Timestamp" }
+      },
+      "required": ["page", "device"]
+    }
+  },
+  "firestore": {
+    "quotes/{quoteId}": {
+      "schema": "QuoteRequest",
+      "description": "Collection of quote requests."
+    },
+    "content/{docId}": {
+      "schema": "SiteContent",
+      "description": "Singleton document containing site text content."
+    },
+    "reviews/{reviewId}": {
+      "schema": "Review",
+      "description": "Collection of customer reviews."
+    },
+    "articles/{articleId}": {
+      "schema": "Article",
+      "description": "Collection of technical blog articles."
+    },
+    "caddie_scans/{scanId}": {
+      "schema": "CaddieScan",
+      "description": "Collection of laser token scans and marketing referrals."
+    },
+    "site_visits/{visitId}": {
+      "schema": "SiteVisit",
+      "description": "Comprehensive website traffic analytics and circulation visits."
+    }
+  }
+}

@@ -1,0 +1,88 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} { allow read, write: if false; }
+    
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    
+    match /quotes/{quoteId} {
+      allow create: if isValidId(quoteId) 
+                    && incoming().keys().hasOnly(['name', 'phone', 'email', 'projectType', 'message', 'createdAt'])
+                    && incoming().name is string && incoming().name.size() <= 100 && incoming().name.size() > 0
+                    && incoming().phone is string && incoming().phone.size() <= 20 && incoming().phone.size() > 0
+                    && incoming().projectType is string && incoming().projectType.size() <= 50
+                    && incoming().email is string && incoming().email.size() <= 100
+                    && incoming().message is string && incoming().message.size() <= 2000
+                    && incoming().createdAt == request.time;
+      allow read, delete: if true;
+    }
+
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isValidId(reviewId)
+                    && incoming().author is string && incoming().author.size() <= 100
+                    && incoming().comment is string && incoming().comment.size() <= 2000;
+      allow update, delete: if true;
+    }
+
+    match /articles/{articleId} {
+      allow read: if true;
+      allow create, update, delete: if true;
+    }
+
+    match /caddie_scans/{scanId} {
+      allow read: if true;
+      allow create: if isValidId(scanId)
+                    && incoming().source is string && incoming().source.size() <= 100
+                    && incoming().rawUrl is string && incoming().rawUrl.size() <= 500;
+      allow update, delete: if true;
+    }
+
+    match /site_visits/{visitId} {
+      allow read: if true;
+      allow create: if isValidId(visitId)
+                    && incoming().page is string && incoming().page.size() <= 200;
+      allow update, delete: if true;
+    }
+    
+    match /content/{docId} {
+      allow read: if true;
+      allow update: if isValidId(docId) 
+                    && incoming().adminCode == '0107'
+                    && incoming().diff(existing()).affectedKeys().hasOnly(['heroTitle', 'heroSubtitle', 'aboutText1', 'aboutText2', 'updatedAt', 'adminCode'])
+                    && (incoming().heroTitle == null || (incoming().heroTitle is string && incoming().heroTitle.size() <= 200))
+                    && (incoming().heroSubtitle == null || (incoming().heroSubtitle is string && incoming().heroSubtitle.size() <= 500))
+                    && (incoming().aboutText1 == null || (incoming().aboutText1 is string && incoming().aboutText1.size() <= 2000))
+                    && (incoming().aboutText2 == null || (incoming().aboutText2 is string && incoming().aboutText2.size() <= 2000))
+                    && incoming().updatedAt == request.time;
+      allow create: if isValidId(docId) 
+                    && incoming().adminCode == '0107'
+                    && incoming().keys().hasOnly(['heroTitle', 'heroSubtitle', 'aboutText1', 'aboutText2', 'updatedAt', 'adminCode'])
+                    && incoming().heroTitle is string && incoming().heroTitle.size() <= 200
+                    && incoming().heroSubtitle is string && incoming().heroSubtitle.size() <= 500
+                    && incoming().aboutText1 is string && incoming().aboutText1.size() <= 2000
+                    && incoming().aboutText2 is string && incoming().aboutText2.size() <= 2000
+                    && incoming().updatedAt == request.time;
+    }
+    
+    match /settings/{docId} {
+      allow read: if true;
+      allow create, update: if incoming().adminCode == '0107';
+      allow delete: if incoming().adminCode == '0107';
+    }
+
+    match /gallery/{docId} {
+      allow read: if true;
+      allow create, update: if incoming().adminCode == '0107';
+      allow delete: if true; 
+    }
+
+    match /beforeAfter/{docId} {
+      allow read: if true;
+      allow create, update: if incoming().adminCode == '0107';
+      allow delete: if true; 
+    }
+  }
+}

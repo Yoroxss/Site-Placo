@@ -1,0 +1,18 @@
+{
+  "name": "Parat & Bouey - Administration",
+  "short_name": "PB Admin",
+  "description": "Tableau de bord et gestion de site pour Parat & Bouey Artisan Plaquiste",
+  "start_url": "/admin",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

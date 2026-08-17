@@ -1,0 +1,130 @@
+@import "tailwindcss";
+
+@layer base {
+  html, body {
+    background-color: #0a0a0a;
+    color: #ffffff;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: none;
+  }
+}
+
+/* iOS Safe Area & PWA helpers */
+.pb-safe {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 1rem));
+}
+
+.pt-safe {
+  padding-top: max(0.5rem, env(safe-area-inset-top, 0.5rem));
+}
+
+.bottom-bar-safe {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0.75rem));
+}
+
+/* Smooth iOS tactile active state */
+.ios-press {
+  transition: transform 0.12s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.12s ease;
+}
+.ios-press:active {
+  transform: scale(0.96);
+  opacity: 0.9;
+}
+
+/* Custom discrete scrollbar */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Fallback for Safari backdrop blur performance */
+@supports (-webkit-backdrop-filter: none) {
+  .backdrop-blur-md,
+  .backdrop-blur-lg,
+  .backdrop-blur-xl {
+    -webkit-backdrop-filter: blur(12px);
+  }
+}
+
+/* =========================================================================
+   Mobile Landscape Mode Optimization for Admin Dashboard
+   Detects screen in landscape orientation with constrained height (smartphones)
+   ========================================================================= */
+
+@media screen and (orientation: landscape) and (max-height: 650px) {
+  /* Dashboard container becomes full-height flex-row */
+  .admin-landscape-shell {
+    display: flex !important;
+    flex-direction: row !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    width: 100vw !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100vw !important;
+  }
+
+  /* Compact navigation sidebar / rail */
+  .admin-landscape-sidebar {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100vh !important;
+    background: rgba(10, 10, 10, 0.95) !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
+    z-index: 50 !important;
+    flex-shrink: 0 !important;
+    transition: width 0.25s ease, transform 0.25s ease !important;
+  }
+
+  /* When sidebar is collapsed in landscape, keep it minimal or hide text */
+  .admin-landscape-sidebar.collapsed {
+    width: 58px !important;
+  }
+
+  .admin-landscape-sidebar.expanded {
+    width: 220px !important;
+  }
+
+  /* Main scrollable dashboard workspace in landscape */
+  .admin-landscape-content {
+    flex: 1 1 0% !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding: 0.75rem 1rem 2rem 1rem !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  /* Reduce bulky paddings and header sizes to prioritize content */
+  .admin-landscape-compact-header {
+    padding-top: 0.25rem !important;
+    padding-bottom: 0.5rem !important;
+    margin-bottom: 0.75rem !important;
+  }
+
+  .admin-landscape-compact-header h1 {
+    font-size: 1.25rem !important;
+    line-height: 1.2 !important;
+  }
+
+  /* Grid density adjustments in mobile landscape */
+  .admin-landscape-content .grid-dense-landscape {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.5rem !important;
+  }
+
+  /* Compact form controls for landscape screens */
+  .admin-landscape-content input,
+  .admin-landscape-content textarea,
+  .admin-landscape-content select {
+    padding-top: 0.35rem !important;
+    padding-bottom: 0.35rem !important;
+    font-size: 0.8125rem !important;
+  }
+}
+

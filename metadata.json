@@ -1,0 +1,6 @@
+{
+  "name": "Parat & Bouey - Artisan Plaquiste",
+  "description": "Site vitrine et espace administration pour Parat & Bouey, artisan plaquiste jointeur sur le Bassin d'Arcachon.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

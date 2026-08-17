@@ -1,0 +1,63 @@
+# ====================================================================
+# Configuration d'optimisation du Cache & Performances pour o2switch
+# Compatible LiteSpeed Server & Apache
+# ====================================================================
+
+# 1. Activation de la réécriture d'URL pour le mode SPA (Single Page App)
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>
+
+# 2. Compression GZIP / Deflate pour réduire la taille des fichiers transférés
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css application/javascript application/x-javascript application/json image/svg+xml
+</IfModule>
+
+# 3. Mise en cache du navigateur (Browser Caching via mod_expires)
+<IfModule mod_expires.c>
+  ExpiresActive On
+  
+  # Images et Médias : 1 an de cache
+  ExpiresByType image/webp "access plus 1 year"
+  ExpiresByType image/jpeg "access plus 1 year"
+  ExpiresByType image/jpg "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 1 year"
+  ExpiresByType image/x-icon "access plus 1 year"
+  
+  # Polices de caractères : 1 an
+  ExpiresByType font/woff2 "access plus 1 year"
+  ExpiresByType font/woff "access plus 1 year"
+  ExpiresByType font/ttf "access plus 1 year"
+  
+  # CSS et JavaScript (fichiers versionnés Vite) : 1 an
+  ExpiresByType text/css "access plus 1 year"
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType application/x-javascript "access plus 1 year"
+  
+  # HTML : Pas de mise en cache pour toujours charger la dernière version de l'application
+  ExpiresByType text/html "access plus 0 seconds"
+</IfModule>
+
+# 4. En-têtes HTTP de Cache (Cache-Control & Security Headers)
+<IfModule mod_headers.c>
+  # Fichiers JavaScript et CSS hachés par Vite dans /assets/ : Cache-Control Immuable
+  <FilesMatch "\.(js|css|webp|png|jpg|jpeg|woff2)$">
+    Header set Cache-Control "max-age=31536000, public, immutable"
+  </FilesMatch>
+  
+  # HTML principal : revalidation systématique
+  <FilesMatch "\.(html)$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+  </FilesMatch>
+
+  # Sécurité de base
+  Header set X-Content-Type-Options "nosniff"
+</IfModule>
