@@ -18,7 +18,7 @@ const ai = new GoogleGenAI({
 
 async function startServer() {
   const app = express();
-  const PORT = process.env.DEFAULT_APP_PORT ? parseInt(process.env.DEFAULT_APP_PORT, 10) : 3000;
+  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : (process.env.DEFAULT_APP_PORT ? parseInt(process.env.DEFAULT_APP_PORT, 10) : 3000);
 
   app.use(express.json({ limit: "50mb" }));
 
