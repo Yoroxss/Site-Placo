@@ -211,6 +211,37 @@ export default function Admin() {
     });
   };
 
+  const resizeBase64Image = (base64: string, maxWidth = 800, maxHeight = 800, quality = 0.70): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = base64;
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let width = img.width;
+        let height = img.height;
+        if (width > height) {
+          if (width > maxWidth) {
+            height *= maxWidth / width;
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width *= maxHeight / height;
+            height = maxHeight;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx?.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = () => {
+        resolve(base64); // Fallback to original
+      };
+    });
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -233,7 +264,7 @@ export default function Admin() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ 
-            imageBase64: base64Image,
+            imageBase64: await resizeBase64Image(base64Image, 800, 800, 0.70),
             userDirectives: uploadDirectives 
           }),
         });
@@ -310,7 +341,7 @@ export default function Admin() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          imageBase64: editingPhoto.url,
+          imageBase64: await resizeBase64Image(editingPhoto.url, 800, 800, 0.70),
           userDirectives: reanalyzeDirectives
         })
       });
@@ -365,6 +396,30 @@ export default function Admin() {
       setFeedback({ message: "Erreur lors de la sauvegarde: " + (err.message || err), type: 'error' });
     } finally {
       setPhotoSaving(false);
+    }
+  };
+
+  const handleSetFavoritePhoto = async (id: string) => {
+    try {
+      setFeedback({ message: "Mise à jour de l'image favorite en cours...", type: "success" });
+      const promises = images.map(async (img) => {
+        if (img.id === id) {
+          await updateDoc(doc(db, "gallery", img.id), { 
+            isFavorite: true,
+            adminCode 
+          });
+        } else if (img.isFavorite) {
+          await updateDoc(doc(db, "gallery", img.id), { 
+            isFavorite: false,
+            adminCode 
+          });
+        }
+      });
+      await Promise.all(promises);
+      setFeedback({ message: "Image favorite définie pour la page d'accueil !", type: "success" });
+    } catch (error: any) {
+      console.error("Error setting favorite photo:", error);
+      setFeedback({ message: "Erreur lors de la définition de l'image favorite: " + getErrorMessage(error), type: "error" });
     }
   };
 
@@ -1419,6 +1474,12 @@ export default function Admin() {
                       <div>
                         <div className="aspect-video relative overflow-hidden bg-black/60">
                           <img src={image.url} alt={image.alt} className="w-full h-full object-cover" />
+                          {image.isFavorite && (
+                            <div className="absolute top-2 left-2 bg-amber-500 text-black px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 shadow-lg backdrop-blur-sm z-10 font-mono">
+                              <Star className="w-3 h-3 fill-black text-black" />
+                              Favori Accueil
+                            </div>
+                          )}
                           <div className="absolute top-2 right-2 flex items-center gap-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                             <button 
                               onClick={() => handleStartEditPhoto(image)}
@@ -1446,15 +1507,29 @@ export default function Admin() {
                           </div>
                         </div>
                       </div>
-                      <div className="px-3.5 pb-3 pt-1 border-t border-white/5 flex items-center justify-between">
+                      <div className="px-3.5 pb-3 pt-1 border-t border-white/5 flex items-center justify-between gap-2 flex-wrap bg-white/[0.01]">
                         <button
                           onClick={() => handleStartEditPhoto(image)}
                           className="text-[10px] font-mono uppercase tracking-wider text-amber-400 hover:text-amber-300 flex items-center gap-1.5 cursor-pointer py-1"
                         >
-                          <Sparkles className="w-3 h-3 text-amber-400" />
+                          <Sparkles className="w-3.5 h-3.5 text-amber-400" />
                           Modifier & IA
                         </button>
-                        <span className="text-[9px] text-white/40 font-mono">
+                        
+                        <button
+                          onClick={() => handleSetFavoritePhoto(image.id)}
+                          className={`text-[10px] font-mono uppercase tracking-wider flex items-center gap-1.5 cursor-pointer py-1 transition-colors ${
+                            image.isFavorite 
+                              ? "text-amber-400 font-bold" 
+                              : "text-white/40 hover:text-[#d1d1c4]"
+                          }`}
+                          title={image.isFavorite ? "Cette image s'affiche actuellement à l'accueil" : "Afficher cette image à l'accueil"}
+                        >
+                          <Star className={`w-3.5 h-3.5 ${image.isFavorite ? "fill-amber-400 text-amber-400" : "text-white/40"}`} />
+                          {image.isFavorite ? "Favori Actif" : "Mettre Favori"}
+                        </button>
+
+                        <span className="text-[9px] text-white/40 font-mono hidden sm:inline">
                           {image.createdAt?.toDate ? image.createdAt.toDate().toLocaleDateString('fr-FR') : 'Galerie'}
                         </span>
                       </div>

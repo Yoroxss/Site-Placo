@@ -49,6 +49,7 @@ export default function Home() {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const displayImages = images.length > 0 ? images : DEFAULT_GALLERY_IMAGES;
+  const favoriteImage = displayImages.find(img => img.isFavorite === true) || displayImages[0];
 
   const scrollLeft = () => {
     if (scrollRef.current) {
@@ -195,8 +196,8 @@ export default function Home() {
                   loading="eager"
                   decoding="async"
                   fetchPriority="high"
-                  src={displayImages[0]?.url || DEFAULT_GALLERY_IMAGES[0]?.url}
-                  alt={displayImages[0]?.alt || DEFAULT_GALLERY_IMAGES[0]?.alt || "Aménagement intérieur Parat & Bouey"}
+                  src={favoriteImage?.url || DEFAULT_GALLERY_IMAGES[0]?.url}
+                  alt={favoriteImage?.alt || DEFAULT_GALLERY_IMAGES[0]?.alt || "Aménagement intérieur Parat & Bouey"}
                   className="absolute inset-0 w-full h-full object-cover opacity-85"
                 />
                 <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/20 to-black/60 flex flex-col justify-between p-6 md:p-8 z-10 pointer-events-none">
