@@ -23,6 +23,7 @@ export default function ReviewsSection() {
 
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
+    let isCancelled = false;
 
     const setupListener = async () => {
       try {
@@ -30,7 +31,9 @@ export default function ReviewsSection() {
         const { db } = await import('../firebase');
         const q = query(collection(db, 'reviews'), orderBy('createdAt', 'desc'));
         
-        unsubscribe = onSnapshot(
+        if (isCancelled) return;
+
+        const unsub = onSnapshot(
           q,
           (snapshot) => {
             if (!snapshot.empty) {
@@ -47,6 +50,12 @@ export default function ReviewsSection() {
             setLoading(false);
           }
         );
+
+        if (isCancelled) {
+          unsub();
+        } else {
+          unsubscribe = unsub;
+        }
       } catch (error) {
         console.warn('Firestore load notice:', error);
         setReviews(DEFAULT_REVIEWS);
@@ -57,6 +66,7 @@ export default function ReviewsSection() {
     setupListener();
 
     return () => {
+      isCancelled = true;
       if (unsubscribe) unsubscribe();
     };
   }, []);

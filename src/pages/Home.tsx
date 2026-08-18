@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useScroll, useTransform } from 'motion/react';
 import React, { useRef, useState, useEffect, lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
 import Header from '../components/Header';
@@ -22,6 +22,13 @@ import { DEFAULT_GALLERY_IMAGES, DEFAULT_BEFORE_AFTER_ITEMS } from '../data/defa
 
 export default function Home() {
   const { content, loading } = useSiteContent();
+
+  const heroSectionRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: heroSectionRef,
+    offset: ["start start", "end start"]
+  });
+  const y = useTransform(scrollYProgress, [0, 1], ["0%", "50%"]);
 
   const [images, setImages] = useState<any[]>(() => {
     try {
@@ -131,12 +138,20 @@ export default function Home() {
   };
 
   return (
-    <>
+    <div className="selection:bg-[#d1d1c4] selection:text-black text-white bg-[#0a0a0a] min-h-screen relative overflow-hidden">
+      {/* Fixed Atmosphere Halos Background */}
+      <div className="fixed inset-0 z-0 opacity-40 pointer-events-none overflow-hidden">
+        {/* En haut à droite : un rond de couleur sable/ivoire #d1d1c4 de 500px flouté à 'blur-[120px] rounded-full' */}
+        <div className="absolute -top-32 -right-32 w-[500px] h-[500px] bg-[#d1d1c4] blur-[120px] rounded-full" />
+        {/* En bas à gauche : un rond de couleur ardoise/sarcelle foncée #1a2b2c de 600px flouté à 'blur-[150px] rounded-full' */}
+        <div className="absolute -bottom-40 -left-40 w-[600px] h-[600px] bg-[#1a2b2c] blur-[150px] rounded-full" />
+      </div>
+
       <Header />
       
       <main className="relative z-10">
         {/* HERO SECTION */}
-        <section className="relative min-h-screen flex flex-col md:grid md:grid-cols-12 gap-0 pt-24 md:pt-0">
+        <section ref={heroSectionRef} className="relative md:sticky md:top-0 md:h-screen flex flex-col md:grid md:grid-cols-12 gap-0 pt-24 md:pt-0 z-0 overflow-hidden bg-[#0a0a0a]">
           
           {/* Left Panel: Text Content */}
           <div className="col-span-12 md:col-span-5 p-8 md:p-12 flex flex-col justify-center md:border-r border-white/5 z-20">
@@ -181,7 +196,7 @@ export default function Home() {
 
           {/* Right Panel: Visual Area */}
           <div className="col-span-12 md:col-span-7 relative flex items-center justify-center p-4 md:p-12 overflow-hidden min-h-[580px] md:min-h-[500px]">
-            <div className="relative w-full h-full flex items-center justify-center max-w-2xl">
+            <motion.div style={{ y }} className="relative w-full h-full flex items-center justify-center max-w-2xl">
               <div className="absolute md:left-10 md:top-1/2 md:-translate-y-1/2 w-[90%] md:w-72 h-auto md:h-80 bg-gradient-to-br from-white/10 to-transparent border border-white/20 rounded-3xl z-30 flex flex-col p-6 shadow-2xl backdrop-blur-xl -translate-y-24 md:translate-y-0">
                 <div className="h-1 w-8 bg-[#d1d1c4] mb-4"></div>
                 <span className="text-[10px] uppercase tracking-widest opacity-50 mb-2">Innovation</span>
@@ -214,12 +229,16 @@ export default function Home() {
               <div className="hidden md:flex absolute top-0 right-10 w-24 h-24 border border-white/10 rounded-full items-center justify-center">
                  <span className="text-[8px] uppercase tracking-widest opacity-20 text-center px-2">Bassin<br/>d'Arcachon</span>
               </div>
-            </div>
+            </motion.div>
           </div>
         </section>
 
-        {/* GARANTIES & BADGES DE CONFIANCE */}
-        <GuaranteesBadge />
+        {/* Overlapping Page Content Wrapper - slides up and covers the sticky hero */}
+        <div className="relative z-10 bg-transparent border-t border-white/5 shadow-[0_-20px_50px_rgba(0,0,0,0.9)]">
+          {/* GARANTIES & BADGES DE CONFIANCE */}
+          <div className="bg-[#0a0a0a]">
+            <GuaranteesBadge />
+          </div>
 
         {/* GALERIE / RÉALISATIONS */}
         <section id="realisations" className="py-16 md:py-32 px-0 md:px-12 border-t border-white/5 relative bg-[#0a0a0a] overflow-hidden">
@@ -426,7 +445,6 @@ export default function Home() {
 
         {/* SERVICES */}
         <section id="services" className="py-24 md:py-32 px-6 md:px-12 border-t border-white/5 relative">
-           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl h-full bg-[radial-gradient(circle,_rgba(26,43,44,0.6)_0%,_transparent_70%)] -z-10 rounded-full pointer-events-none"></div>
           
           <div className="max-w-7xl mx-auto">
             <div className="flex justify-center mb-16">
@@ -497,10 +515,11 @@ export default function Home() {
         <Suspense fallback={null}>
           <InterventionZone />
         </Suspense>
+        </div>
       </main>
 
       <FloatingMobileCta />
       <Footer />
-    </>
+    </div>
   );
 }

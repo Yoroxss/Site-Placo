@@ -1,0 +1,69 @@
+{
+  "themeName": "Artisanat d'Excellence",
+  "version": "1.0.0",
+  "styleReference": {
+    "colors": {
+      "bgPrimary": "#0a0a0a",
+      "bgSecondary": "#050505",
+      "textSelection": "#d1d1c4",
+      "sableIvoire": "#d1d1c4",
+      "ardoiseSarcelle": "#1a2b2c"
+    },
+    "atmosphereHalos": {
+      "topRight": {
+        "color": "#d1d1c4",
+        "size": "500px",
+        "blur": "120px"
+      },
+      "bottomLeft": {
+        "color": "#1a2b2c",
+        "size": "600px",
+        "blur": "150px"
+      }
+    },
+    "typography": {
+      "display": {
+        "fontFamily": "Georgia, serif",
+        "style": "italic",
+        "weight": "font-light"
+      },
+      "label": {
+        "size": "text-[10px]",
+        "tracking": "tracking-widest",
+        "transform": "uppercase",
+        "color": "#d1d1c4"
+      },
+      "body": {
+        "color": "text-white/60",
+        "weight": "font-light",
+        "size": "text-sm md:text-base",
+        "lineHeight": "leading-relaxed"
+      }
+    },
+    "glassmorphism": {
+      "bg": "bg-white/5",
+      "border": "border border-white/10",
+      "backdrop": "backdrop-blur-md"
+    },
+    "buttonPrimary": {
+      "classes": "bg-white text-black font-bold uppercase hover:bg-[#d1d1c4] transition-colors"
+    },
+    "animations": {
+      "carousel3D": {
+        "perspective": "1000px",
+        "spreadX": "offset * 65%",
+        "scale": "1 - Math.abs(offset) * 0.15",
+        "rotateY": "offset * -25",
+        "spring": {
+          "stiffness": 120,
+          "damping": 25,
+          "mass": 1.2
+        }
+      },
+      "beforeAfterSlider": {
+        "oscillationFormula": "50 + Math.sin(time) * 6",
+        "lerpFactor": "0.03 to 0.06"
+      }
+    }
+  }
+}
