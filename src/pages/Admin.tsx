@@ -20,7 +20,7 @@ import TrafficAnalyticsDashboard from '../components/TrafficAnalyticsDashboard';
 import LaserQrGenerator from '../components/LaserQrGenerator';
 import MailAdminSection from '../components/MailAdminSection';
 
-type AdminTab = 'all' | 'traffic' | 'jetons' | 'qr_laser' | 'quotes' | 'reviews' | 'gallery' | 'ba' | 'seo' | 'mail';
+type AdminTab = 'all' | 'traffic' | 'jetons' | 'qr_laser' | 'quotes' | 'reviews' | 'gallery' | 'ba' | 'seo' | 'mail' | 'infra';
 
 export default function Admin() {
   const { adminCode, isAdmin, login, logout } = useAdmin();
@@ -697,6 +697,7 @@ export default function Admin() {
     { id: 'quotes' as AdminTab, label: `Devis (${quotes.length})`, shortLabel: `Devis`, icon: FileText, count: quotes.length },
     { id: 'reviews' as AdminTab, label: `Avis (${reviews.length})`, shortLabel: `Avis`, icon: Star, count: reviews.length },
     { id: 'mail' as AdminTab, label: 'Messagerie (E-mails)', shortLabel: 'E-mails', icon: Mail },
+    { id: 'infra' as AdminTab, label: 'Infrastructure & Coûts', shortLabel: 'Coûts', icon: SlidersHorizontal },
     { id: 'qr_laser' as AdminTab, label: 'Générateur Laser QR', shortLabel: 'Laser QR', icon: QrCode },
     { id: 'gallery' as AdminTab, label: 'Galerie Photos', shortLabel: 'Galerie', icon: ImagePlus },
     { id: 'ba' as AdminTab, label: 'Avant / Après', shortLabel: 'Av/Ap', icon: Sparkles },
@@ -1679,6 +1680,197 @@ export default function Admin() {
           </div>
         )}
 
+        {/* =========================================================================
+            8B. INFRASTRUCTURE CLOUD ET SUIVI DES COÛTS GOOGLE / FIREBASE
+            ========================================================================= */}
+        {(activeTab === 'all' || activeTab === 'infra') && (
+          <div className="bg-[#111111]/90 p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl border border-white/10 backdrop-blur-md mb-6 sm:mb-8 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-white/10">
+              <div>
+                <h2 className="text-base sm:text-xl tracking-widest uppercase text-[#d1d1c4] font-light flex items-center gap-2">
+                  <SlidersHorizontal className="w-5 h-5 text-amber-400" />
+                  Infrastructure Cloud & Suivi des Coûts
+                </h2>
+                <p className="text-xs text-white/50 mt-1">
+                  Centralisation de tous vos accès d'hébergement, bases de données, sécurité et rapports de budget Google Cloud.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs font-mono shrink-0">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Budget maîtrisé : 0,00 € réels
+              </div>
+            </div>
+
+            {/* Quick Warning / Help Alert */}
+            <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-xs sm:text-sm text-amber-300 leading-relaxed flex items-start gap-3">
+              <ShieldCheck className="w-5 h-5 shrink-0 text-amber-400 mt-0.5" />
+              <div>
+                <strong className="text-white block mb-0.5">Comment l'infrastructure reste-t-elle gratuite ?</strong>
+                99 % de vos services (Serveur Cloud Run, base de données Firestore, authentification) dorment automatiquement quand vous n'utilisez pas le site et profitent de gigantesques quotas gratuits à vie. Suivez les recommandations ci-dessous pour ne jamais payer un seul centime inutile !
+              </div>
+            </div>
+
+            {/* Grid of Google Services */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              
+              {/* Card 1: Facturation & Rapports de Coûts */}
+              <div className="bg-black/40 border border-white/10 rounded-2xl p-4 sm:p-5 flex flex-col justify-between hover:border-amber-500/30 transition-all">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-mono text-amber-300 uppercase tracking-widest bg-amber-500/10 px-2 py-0.5 rounded-md">Facturation active</span>
+                    <span className="text-xs text-white/40">GCP Billing</span>
+                  </div>
+                  <h3 className="text-sm font-semibold text-white">Rapport de Facturation Complet</h3>
+                  <p className="text-xs text-white/60 leading-relaxed">
+                    Visualisez votre facture en temps réel, vérifiez vos remises automatiques et l'état de votre crédit promotionnel de bienvenue offert par Google.
+                  </p>
+                </div>
+                <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between">
+                  <span className="text-xs font-mono text-emerald-400 font-semibold">Suivi précis des centimes</span>
+                  <a 
+                    href="https://console.cloud.google.com/billing/012AE5-55BB32-6C77E1/reports?project=gen-lang-client-0938429297" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300 font-semibold cursor-pointer"
+                  >
+                    Ouvrir les rapports <ArrowUpRight className="w-3.5 h-3.5" />
+                  </a>
+                </div>
+              </div>
+
+              {/* Card 2: Cloud Run (Moteur du site) */}
+              <div className="bg-black/40 border border-white/10 rounded-2xl p-4 sm:p-5 flex flex-col justify-between hover:border-amber-500/30 transition-all">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-mono text-blue-300 uppercase tracking-widest bg-blue-500/10 px-2 py-0.5 rounded-md">Heure de calcul</span>
+                    <span className="text-xs text-white/40">Cloud Run</span>
+                  </div>
+                  <h3 className="text-sm font-semibold text-white">Serveur Public & Historique de Version</h3>
+                  <p className="text-xs text-white/60 leading-relaxed">
+                    Gère le tri IA de vos e-mails, les formulaires de devis et la sécurité. S'éteint automatiquement (Scale to 0) quand il n'y a pas de visite pour rester 100 % gratuit.
+                  </p>
+                </div>
+                <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between">
+                  <span className="text-xs font-mono text-white/40">Quota : 2 millions de requêtes/mois</span>
+                  <a 
+                    href="https://console.cloud.google.com/run?project=gen-lang-client-0938429297" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300 font-semibold cursor-pointer"
+                  >
+                    Console Cloud Run <ArrowUpRight className="w-3.5 h-3.5" />
+                  </a>
+                </div>
+              </div>
+
+              {/* Card 3: Artifact Registry (Sauvegardes de code) */}
+              <div className="bg-black/40 border border-white/10 rounded-2xl p-4 sm:p-5 flex flex-col justify-between hover:border-amber-500/30 transition-all">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-mono text-purple-300 uppercase tracking-widest bg-purple-500/10 px-2 py-0.5 rounded-md">Sauvegardes</span>
+                    <span className="text-xs text-white/40">Artifact Registry</span>
+                  </div>
+                  <h3 className="text-sm font-semibold text-white">Dépôt d'images de Code & Restauration</h3>
+                  <p className="text-xs text-white/60 leading-relaxed">
+                    Stocke les sauvegardes automatiques de votre site. Vous pouvez restaurer n'importe quelle ancienne version en cas de problème.
+                  </p>
+                </div>
+                <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between">
+                  <span className="text-xs font-mono text-white/40">Quota : 500 Mo gratuits (Always Free)</span>
+                  <a 
+                    href="https://console.cloud.google.com/artifacts?project=gen-lang-client-0938429297" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300 font-semibold cursor-pointer"
+                  >
+                    Gérer l'espace disque <ArrowUpRight className="w-3.5 h-3.5" />
+                  </a>
+                </div>
+              </div>
+
+              {/* Card 4: Firebase Console (Firestore DB & Auth) */}
+              <div className="bg-black/40 border border-white/10 rounded-2xl p-4 sm:p-5 flex flex-col justify-between hover:border-amber-500/30 transition-all">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-mono text-emerald-300 uppercase tracking-widest bg-emerald-500/10 px-2 py-0.5 rounded-md">Base de données</span>
+                    <span className="text-xs text-white/40">Firestore & Auth</span>
+                  </div>
+                  <h3 className="text-sm font-semibold text-white">Données du Site & Comptes Clients</h3>
+                  <p className="text-xs text-white/60 leading-relaxed">
+                    Stocke vos e-mails classés, demandes de devis, témoignages clients et gère l'accès sécurisé à ce panneau d'administration.
+                  </p>
+                </div>
+                <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between">
+                  <span className="text-xs font-mono text-white/40">Quota : 50k lectures / 20k écritures par jour</span>
+                  <a 
+                    href="https://console.firebase.google.com/project/ai-studio-8d3e927c-8cc4-44cf-8ff9-44f41a72f12f/overview" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300 font-semibold cursor-pointer"
+                  >
+                    Console Firebase <ArrowUpRight className="w-3.5 h-3.5" />
+                  </a>
+                </div>
+              </div>
+
+              {/* Card 5: Cloud Storage (Fichiers en Europe) */}
+              <div className="bg-black/40 border border-white/10 rounded-2xl p-4 sm:p-5 flex flex-col justify-between hover:border-amber-500/30 transition-all md:col-span-2">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-mono text-blue-300 uppercase tracking-widest bg-blue-500/10 px-2 py-0.5 rounded-md">Stockage Europe</span>
+                    <span className="text-xs text-white/40">Cloud Storage</span>
+                  </div>
+                  <h3 className="text-sm font-semibold text-white">Archives de déploiement et performance locale</h3>
+                  <p className="text-xs text-white/60 leading-relaxed">
+                    Héberge les archives de démarrage de votre serveur de manière locale en Europe (région <code>europe-west2</code>) pour que votre site charge ultra-vite pour vos clients de Gironde. Coût minime d'environ <strong>0,01 € / mois</strong> (un centime d'euro).
+                  </p>
+                </div>
+                <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between">
+                  <span className="text-xs font-mono text-amber-300/80 font-semibold">Vitesse de chargement optimale (Arcachon)</span>
+                  <a 
+                    href="https://console.cloud.google.com/storage/browser?project=gen-lang-client-0938429297" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300 font-semibold cursor-pointer"
+                  >
+                    Ouvrir l'espace Cloud Storage <ArrowUpRight className="w-3.5 h-3.5" />
+                  </a>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Strategy / Checklist Section */}
+            <div className="p-5 bg-white/5 border border-white/10 rounded-2xl space-y-4">
+              <h3 className="text-xs sm:text-sm uppercase tracking-widest text-[#d1d1c4] font-semibold flex items-center gap-2">
+                <ShieldCheck className="w-4.5 h-4.5 text-amber-400" />
+                Guide Pratique : Nettoyage Automatique & Gratuité à Vie
+              </h3>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-white/70 leading-relaxed">
+                <div className="space-y-2">
+                  <strong className="text-white block">1. Pourquoi s'en préoccuper ?</strong>
+                  <span>Lors des périodes de développement (comme ce mois-ci), nous faisons de nombreux essais et mises à jour de code. Google Cloud stocke l'historique de chaque version. Si on ne le nettoie pas, ces sauvegardes finissent par s'accumuler et peuvent dépasser les 500 Mo gratuits au bout de quelques mois.</span>
+                </div>
+                <div className="space-y-2">
+                  <strong className="text-white block">2. La solution automatique (Recommandée)</strong>
+                  <span>Vous pouvez configurer Google pour qu'il fasse le tri tout seul à votre place en 1 minute.
+                    Cliquez sur le bouton <span className="text-amber-300">"Gérer l'espace disque"</span> ci-dessus pour accéder à votre <strong>Artifact Registry</strong>, puis modifiez les <em>Politiques de Nettoyage (Cleanup Policies)</em> avec ces critères :
+                    <ul className="list-disc pl-4 mt-1 space-y-0.5 text-white/50 text-[11px]">
+                      <li>Garder uniquement les <strong>10 versions</strong> les plus récentes.</li>
+                      <li>Appliquer uniquement sur l'état de balise : <strong>"Sans balise" (Untagged)</strong>.</li>
+                    </ul>
+                  </span>
+                </div>
+              </div>
+              
+              <div className="p-3 bg-emerald-500/15 border border-emerald-500/30 rounded-xl text-emerald-300 text-xs font-mono">
+                💡 <strong>Astuce :</strong> Ainsi, vos brouillons quotidiens se nettoient automatiquement, et si vous voulez garder une version jalon stable de sécurité à long terme, vous lui mettez simplement l'étiquette <code>stable</code> dans la console Google Cloud. Elle sera préservée à vie sans jamais être effacée !
+              </div>
+            </div>
+          </div>
+        )}
+
       </main>
 
       {/* =========================================================================
@@ -1850,6 +2042,19 @@ export default function Admin() {
                   <div>
                     <h4 className="text-xs font-semibold text-white">Messagerie</h4>
                     <p className="text-[10px] text-white/50">Gestion des e-mails</p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => { setActiveTab('infra'); setShowToolsSheet(false); }}
+                  className="p-3.5 rounded-2xl bg-white/5 border border-white/10 hover:border-amber-500/40 text-left flex items-start gap-3 transition-all active:scale-95 cursor-pointer"
+                >
+                  <div className="p-2 rounded-xl bg-amber-500/15 text-amber-300 shrink-0">
+                    <SlidersHorizontal className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-semibold text-white">Infras & Coûts</h4>
+                    <p className="text-[10px] text-white/50">Suivi budget & Google</p>
                   </div>
                 </button>
 
