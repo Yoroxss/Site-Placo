@@ -3,6 +3,10 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
+import nodemailer from "nodemailer";
+import { simpleParser } from "mailparser";
+// @ts-ignore
+import { ImapFlow } from "imapflow";
 
 dotenv.config();
 
@@ -455,6 +459,452 @@ Réponds UNIQUEMENT au format JSON avec cette structure exacte :
         latitude: 44.6586,
         longitude: -1.1648
       });
+    }
+  });
+
+  // ==========================================
+  // CLIENT DE MESSAGERIE (IMAP & SMTP PROXY)
+  // ==========================================
+
+  function getImapClient() {
+    const user = process.env.MAIL_USER;
+    const pass = process.env.MAIL_PASS;
+    const host = process.env.MAIL_IMAP_HOST || "mail.plaquiste-arcachon.fr";
+    const port = parseInt(process.env.MAIL_IMAP_PORT || "993", 10);
+
+    if (!user || !pass) {
+      throw new Error("Configuration de messagerie incomplète. Veuillez renseigner MAIL_USER et MAIL_PASS dans les Secrets.");
+    }
+
+    const client = new ImapFlow({
+      host,
+      port,
+      secure: true,
+      auth: { user, pass },
+      logger: false,
+      emitLogs: false
+    });
+
+    return client as any;
+  }
+
+  // 1. Liste des dossiers de messagerie
+  app.get("/api/mail/folders", async (req, res) => {
+    const client = getImapClient();
+    try {
+      await client.connect();
+      const list = await client.list();
+      const folders = list.map(f => ({
+        path: f.path,
+        name: f.name,
+        flags: Array.from(f.flags || [])
+      }));
+      res.json({ folders });
+    } catch (err: any) {
+      console.error("IMAP list folders error:", err);
+      res.status(500).json({ error: "Erreur lors de la récupération des dossiers: " + (err.message || err) });
+    } finally {
+      try { await client.logout(); } catch {}
+    }
+  });
+
+  // 2. Liste des e-mails d'un dossier
+  app.get("/api/mail/messages", async (req, res) => {
+    const folderPath = (req.query.folder as string) || "INBOX";
+    const limit = parseInt((req.query.limit as string) || "30", 10);
+    const offset = parseInt((req.query.offset as string) || "0", 10);
+
+    const client = getImapClient();
+    try {
+      await client.connect();
+      const lock = await client.getMailboxLock(folderPath);
+      try {
+        // Rechercher les messages non supprimés
+        const searchResults: any = await client.search({ deleted: false });
+        if (!searchResults || !Array.isArray(searchResults)) {
+          return res.json({ messages: [], total: 0 });
+        }
+        const totalMessages = searchResults.length;
+
+        // Trier du plus récent au plus ancien (index élevé à bas)
+        const reversedResults = [...searchResults].reverse();
+        const pageResults = reversedResults.slice(offset, offset + limit);
+
+        const messages: any[] = [];
+        if (pageResults.length > 0) {
+          const sequenceRange = pageResults.join(",");
+          for await (let msg of client.fetch(sequenceRange, { envelope: true, flags: true, source: false })) {
+            messages.push({
+              uid: msg.uid,
+              seq: msg.seq,
+              flags: Array.from(msg.flags || []),
+              seen: msg.flags.has("\\Seen"),
+              subject: msg.envelope.subject || "(Sans objet)",
+              date: msg.envelope.date,
+              from: msg.envelope.from ? msg.envelope.from.map(f => `${f.name || ""} <${f.address || ""}>`).join(", ") : "Inconnu",
+              to: msg.envelope.to ? msg.envelope.to.map(t => `${t.name || ""} <${t.address || ""}>`).join(", ") : "Inconnu"
+            });
+          }
+        }
+
+        // Retrier pour garantir l'affichage chronologique inverse exact de la page demandée
+        messages.sort((a, b) => b.seq - a.seq);
+
+        res.json({ messages, total: totalMessages });
+      } finally {
+        lock.release();
+      }
+    } catch (err: any) {
+      console.error("IMAP fetch messages error:", err);
+      res.status(500).json({ error: "Erreur lors de la récupération des messages: " + (err.message || err) });
+    } finally {
+      try { await client.logout(); } catch {}
+    }
+  });
+
+  // 3. Contenu détaillé d'un e-mail
+  app.get("/api/mail/message/:uid", async (req, res) => {
+    const folderPath = (req.query.folder as string) || "INBOX";
+    const uid = parseInt(req.params.uid, 10);
+
+    const client = getImapClient();
+    try {
+      await client.connect();
+      const lock = await client.getMailboxLock(folderPath);
+      try {
+        let sourceBuffer: any = null;
+        for await (let msg of client.fetch(String(uid), { source: true }, { uid: true })) {
+          sourceBuffer = msg.source;
+          break;
+        }
+
+        if (!sourceBuffer) {
+          return res.status(404).json({ error: "Message introuvable." });
+        }
+
+        const parsed: any = await simpleParser(sourceBuffer);
+        
+        // Marquer automatiquement le message comme Lu (\Seen) lors de l'ouverture
+        try {
+          await client.messageFlagsAdd(String(uid), ["\\Seen"], { uid: true });
+        } catch (flagError) {
+          console.warn("Could not add Seen flag:", flagError);
+        }
+
+        res.json({
+          uid,
+          subject: parsed.subject || "(Sans objet)",
+          date: parsed.date,
+          from: parsed.from?.text || parsed.headers.get("from")?.toString() || "",
+          to: parsed.to?.text || parsed.headers.get("to")?.toString() || "",
+          cc: parsed.cc?.text || "",
+          html: parsed.html || parsed.textAsHtml || "",
+          text: parsed.text || "",
+          attachments: parsed.attachments?.map(att => ({
+            filename: att.filename,
+            contentType: att.contentType,
+            size: att.size
+          })) || []
+        });
+      } finally {
+        lock.release();
+      }
+    } catch (err: any) {
+      console.error("IMAP fetch single message error:", err);
+      res.status(500).json({ error: "Erreur lors de la lecture du message: " + (err.message || err) });
+    } finally {
+      try { await client.logout(); } catch {}
+    }
+  });
+
+  // 4. Envoi d'un e-mail (SMTP)
+  app.post("/api/mail/send", async (req, res) => {
+    const { to, subject, html, text } = req.body;
+    if (!to || !subject || (!html && !text)) {
+      return res.status(400).json({ error: "Destinataire, objet et contenu de message requis." });
+    }
+
+    const user = process.env.MAIL_USER;
+    const pass = process.env.MAIL_PASS;
+    const host = process.env.MAIL_SMTP_HOST || "mail.plaquiste-arcachon.fr";
+    const port = parseInt(process.env.MAIL_SMTP_PORT || "465", 10);
+
+    if (!user || !pass) {
+      return res.status(500).json({ error: "Configuration de messagerie incomplète dans les Secrets de la plateforme." });
+    }
+
+    const transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure: true,
+      auth: { user, pass },
+    });
+
+    try {
+      const info = await transporter.sendMail({
+        from: `"Parat & Bouey" <${user}>`,
+        to,
+        subject,
+        text,
+        html,
+      });
+      res.json({ success: true, messageId: info.messageId });
+    } catch (smtpError: any) {
+      console.error("SMTP error:", smtpError);
+      res.status(500).json({ error: "Échec de l'envoi de l'e-mail: " + smtpError.message });
+    }
+  });
+
+  // 5. Supprimer un e-mail (Marquer comme \Deleted et expurger)
+  app.post("/api/mail/delete", async (req, res) => {
+    const { folderPath = "INBOX", uid } = req.body;
+    if (!uid) {
+      return res.status(400).json({ error: "UID du message requis." });
+    }
+
+    const client = getImapClient();
+    try {
+      await client.connect();
+      const lock = await client.getMailboxLock(folderPath);
+      try {
+        await client.messageFlagsAdd(String(uid), ["\\Deleted"], { uid: true });
+        await client.mailboxExpunge(folderPath);
+        res.json({ success: true });
+      } finally {
+        lock.release();
+      }
+    } catch (err: any) {
+      console.error("IMAP delete error:", err);
+      res.status(500).json({ error: "Erreur lors de la suppression: " + (err.message || err) });
+    } finally {
+      try { await client.logout(); } catch {}
+    }
+  });
+
+  // 6. Marquer comme Lu/Non Lu
+  app.post("/api/mail/mark-read", async (req, res) => {
+    const { folderPath = "INBOX", uid, read } = req.body;
+    if (!uid) {
+      return res.status(400).json({ error: "UID du message requis." });
+    }
+
+    const client = getImapClient();
+    try {
+      await client.connect();
+      const lock = await client.getMailboxLock(folderPath);
+      try {
+        if (read) {
+          await client.messageFlagsAdd(String(uid), ["\\Seen"], { uid: true });
+        } else {
+          await client.messageFlagsRemove(String(uid), ["\\Seen"], { uid: true });
+        }
+        res.json({ success: true });
+      } finally {
+        lock.release();
+      }
+    } catch (err: any) {
+      console.error("IMAP toggle read status error:", err);
+      res.status(500).json({ error: "Erreur lors du changement de statut Lu/Non-lu: " + (err.message || err) });
+    } finally {
+      try { await client.logout(); } catch {}
+    }
+  });
+
+  // 7. Assistant de réponse e-mail par IA (Gemini 3.7-flash)
+  app.post("/api/mail/ai-reply-suggest", async (req, res) => {
+    const { originalSender, originalSubject, originalBody, instruction } = req.body;
+    if (!originalSender || !originalSubject || !originalBody) {
+      return res.status(400).json({ error: "Les informations de l'e-mail d'origine sont requises." });
+    }
+
+    try {
+      const prompt = `Vous êtes l'assistant de messagerie IA de l'entreprise "Parat & Bouey Plâtrerie", artisan plaquiste-jointeur d'excellence sur le Bassin d'Arcachon.
+Votre rôle est d'aider le gérant (Stéphane) à rédiger un e-mail de réponse parfait, professionnel et chaleureux en français.
+
+E-MAIL REÇU :
+- De : ${originalSender}
+- Objet : ${originalSubject}
+- Message :
+"${originalBody}"
+
+CONSIGNE DE RÉPONSE CHOISIE :
+"${instruction || "Rédiger une réponse professionnelle générique"}"
+
+INSTRUCTIONS DE RÉDACTION IMPÉRATIVES :
+1. Adoptez un ton poli, chaleureux, extrêmement professionnel et digne d'un artisan d'excellence de la plâtrerie.
+2. Signez par : "Parat & Bouey Plâtrerie" (ne mettez aucun nom fictif d'employé ou d'assistant, signez simplement au nom de l'entreprise ou au nom de l'équipe de Parat & Bouey).
+3. Le message doit être rédigé en français impeccable, prêt à être envoyé. Ne mettez aucun placeholder ou crochet (ex: [Votre Nom] ou [Date]). S'il manque des détails de dates ou de rendez-vous, demandez poliment à convenir d'un moment.
+4. Renvoyez UNIQUEMENT le texte du courriel de réponse. Ne rajoutez aucun commentaire d'introduction ni de conclusion explicative de votre part. Ne mettez pas de guillemets autour du message.`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.7-flash",
+        contents: prompt,
+        config: {
+          systemInstruction: "Vous êtes l'assistant d'aide à la décision et de messagerie d'un artisan plaquiste d'excellence.",
+          temperature: 0.7,
+        }
+      });
+
+      res.json({ text: response.text });
+    } catch (err: any) {
+      console.error("Gemini AI Mail Suggest Error:", err);
+      res.status(500).json({ error: "Erreur lors de la génération de la réponse par l'IA: " + (err.message || err) });
+    }
+  });
+
+  // 8. Classification intelligente des e-mails par lot (Prioritaire vs Autre / Publicité)
+  app.post("/api/mail/ai-classify", async (req, res) => {
+    const { emails } = req.body;
+    if (!emails || !Array.isArray(emails) || emails.length === 0) {
+      return res.json({ classifications: [] });
+    }
+
+    try {
+      const prompt = `Tu es l'assistant de tri intelligent pour l'entreprise artisanale "Parat & Bouey Plâtrerie", spécialisée dans la pose de plaques de plâtre (placo), cloisons, isolation, faux-plafonds, et ratissage d'enduit sur le Bassin d'Arcachon.
+
+Tu dois analyser et trier cette liste de courriels reçus dans la boîte professionnelle de l'entreprise.
+Trie chaque e-mail en deux catégories :
+1. "prioritaire" : Les e-mails de vrais clients, demandes de devis, messages de fournisseurs locaux (isolation, placo, matériaux), factures réelles, échanges de chantier réels, messages administratifs importants.
+2. "autre" : Les sollicitations commerciales (ex: agences web vendant du SEO, vendeurs de fichiers de prospects, newsletters, spams évidents, offres d'outils logiciels non sollicités, e-mails d'assistance de plateformes que l'artisan n'utilise pas).
+
+Voici la liste des e-mails à trier (avec leur identifiant UID, expéditeur et objet) :
+${JSON.stringify(emails, null, 2)}
+
+Pour chaque e-mail, tu devez :
+- Déterminer s'il est "prioritaire" ou "autre" (en minuscules).
+- Rédiger une très courte phrase explicative en français expliquant ton choix (ex: "Demande de travaux d'un particulier" ou "Démarchage commercial d'une agence Web pour du SEO").
+
+Réponds STRICTEMENT au format JSON avec la structure exacte suivante :
+{
+  "classifications": [
+    {
+      "uid": 1234,
+      "priority": "prioritaire" | "autre",
+      "reason": "Brève explication claire en français"
+    }
+  ]
+}`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.7-flash",
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          temperature: 0.1
+        }
+      });
+
+      const text = response.text;
+      if (text) {
+        const cleanText = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+        const parsed = JSON.parse(cleanText);
+        if (parsed && Array.isArray(parsed.classifications)) {
+          return res.json({ classifications: parsed.classifications });
+        }
+      }
+      throw new Error("Format de réponse invalide de Gemini");
+    } catch (err: any) {
+      console.error("Gemini AI Mail Classify Error:", err);
+      // Fallback: classify everything as prioritaire if something goes wrong so they don't miss anything
+      const fallbackClassifications = emails.map((e: any) => ({
+        uid: e.uid,
+        priority: "prioritaire",
+        reason: "Lecture standard (Analyse indisponible)"
+      }));
+      res.json({ classifications: fallbackClassifications });
+    }
+  });
+
+  // Endpoint de notification de nouveau devis pour déclencher les alertes push/email instantanées sur l'iPhone du gérant
+  app.post("/api/notify-new-quote", async (req, res) => {
+    const { name, phone, email, projectType, message } = req.body;
+    
+    const user = process.env.MAIL_USER;
+    const pass = process.env.MAIL_PASS;
+    const host = process.env.MAIL_SMTP_HOST || "mail.plaquiste-arcachon.fr";
+    const port = parseInt(process.env.MAIL_SMTP_PORT || "465", 10);
+
+    if (!user || !pass) {
+      console.warn("Nouveau devis reçu mais secrets MAIL_USER/MAIL_PASS absents.");
+      return res.json({ success: false, warning: "Configuration de messagerie absente pour l'envoi d'alerte." });
+    }
+
+    const transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure: true,
+      auth: { user, pass },
+    });
+
+    const alertHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 25px; border: 1px solid rgba(194, 157, 56, 0.2); border-radius: 16px; background-color: #0f0f0f; color: #ffffff;">
+        <div style="text-align: center; margin-bottom: 20px;">
+          <h2 style="color: #c29d38; margin: 0; font-weight: normal; font-family: Georgia, serif; font-size: 24px; letter-spacing: 1px;">🔔 NOUVELLE DEMANDE DE DEVIS</h2>
+          <p style="font-size: 11px; color: #888; text-transform: uppercase; tracking-widest; margin-top: 5px;">Parat & Bouey • Bassin d'Arcachon</p>
+        </div>
+        
+        <p style="font-size: 14px; color: #ccc; text-align: center; line-height: 1.5; margin-bottom: 25px;">
+          Un nouveau client vient de soumettre une demande sur votre site internet. Voici ses coordonnées détaillées :
+        </p>
+        
+        <div style="background-color: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); padding: 20px; border-radius: 12px; margin-bottom: 25px;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+              <td style="padding: 10px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.08); font-weight: bold; color: #c29d38; width: 35%; font-size: 13px;">NOM / PRÉNOM :</td>
+              <td style="padding: 10px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.08); color: #fff; font-size: 13px; font-weight: bold;">${name || 'Non renseigné'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 10px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.08); font-weight: bold; color: #c29d38; font-size: 13px;">TÉLÉPHONE :</td>
+              <td style="padding: 10px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.08); color: #fff; font-size: 14px; font-weight: bold;">
+                <a href="tel:${phone}" style="color: #4ade80; text-decoration: none;">📞 ${phone || 'Non renseigné'}</a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 10px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.08); font-weight: bold; color: #c29d38; font-size: 13px;">E-MAIL CLIENT :</td>
+              <td style="padding: 10px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.08); color: #ccc; font-size: 13px;">
+                <a href="mailto:${email}" style="color: #60a5fa; text-decoration: none;">${email || 'Non renseigné'}</a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 10px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.08); font-weight: bold; color: #c29d38; font-size: 13px;">TYPE DE CHANTIER :</td>
+              <td style="padding: 10px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.08); color: #fff; font-size: 13px; font-weight: bold; text-transform: uppercase;">${projectType || 'Non renseigné'}</td>
+            </tr>
+          </table>
+        </div>
+        
+        <div style="background-color: rgba(194, 157, 56, 0.05); padding: 20px; border-left: 4px solid #c29d38; margin-bottom: 30px; border-radius: 4px 12px 12px 4px;">
+          <h4 style="margin-top: 0; color: #c29d38; font-weight: bold; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;">MESSAGE DÉTAILLÉ DU CLIENT :</h4>
+          <p style="margin: 0; font-size: 14px; color: #e5e5e5; white-space: pre-line; line-height: 1.6;">${message || 'Aucun message laissé.'}</p>
+        </div>
+        
+        <div style="text-align: center; margin-top: 15px;">
+          <a href="https://plaquiste-arcachon.fr/admin" style="background-color: #c29d38; color: #000000; padding: 14px 28px; text-decoration: none; font-weight: bold; border-radius: 12px; display: inline-block; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 4px 15px rgba(194,157,56,0.25);">
+            Ouvrir la Console Admin
+          </a>
+        </div>
+        
+        <p style="font-size: 10px; color: #555; text-align: center; margin-top: 40px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 15px; font-family: monospace;">
+          Notification automatique Parat & Bouey s.a.r.l.
+        </p>
+      </div>
+    `;
+
+    try {
+      // Envoyer à l'adresse yonixss@hotmail.fr et à l'adresse pro configurée
+      const recipients = ["yonixss@hotmail.fr", user].filter(Boolean).join(", ");
+      
+      await transporter.sendMail({
+        from: `"Alerte Devis Parat & Bouey" <${user}>`,
+        to: recipients,
+        subject: `🔔 Nouveau devis : ${name} (${projectType})`,
+        html: alertHtml,
+        text: `Nouveau devis de ${name} (${phone}) - Projet: ${projectType}\n\nMessage: ${message}`
+      });
+      
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error("Failed to send quote alert mail:", err);
+      res.status(500).json({ error: "Erreur d'envoi d'alerte: " + err.message });
     }
   });
 

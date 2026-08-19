@@ -56,6 +56,26 @@ export default function QuoteForm() {
       };
       
       await addDoc(collection(db, 'quotes'), payload);
+      
+      // Envoi de la notification d'alerte mail/push instantanée sur l'iPhone du gérant via le serveur SMTP pro
+      try {
+        await fetch('/api/notify-new-quote', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            name: formData.name,
+            phone: formData.phone,
+            email: formData.email,
+            projectType: formData.projectType,
+            message: finalMessage
+          })
+        });
+      } catch (notifyErr) {
+        console.warn("Échec de l'envoi de l'alerte SMTP:", notifyErr);
+      }
+
       setStatus('success');
       setFormData({
         name: '', phone: '', email: '', projectType: 'Aménagement intérieur', message: '', location: ''

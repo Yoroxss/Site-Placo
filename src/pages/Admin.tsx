@@ -18,8 +18,9 @@ import BlogAdminSection from '../components/BlogAdminSection';
 import CaddieAnalyticsWidget from '../components/CaddieAnalyticsWidget';
 import TrafficAnalyticsDashboard from '../components/TrafficAnalyticsDashboard';
 import LaserQrGenerator from '../components/LaserQrGenerator';
+import MailAdminSection from '../components/MailAdminSection';
 
-type AdminTab = 'all' | 'traffic' | 'jetons' | 'qr_laser' | 'quotes' | 'reviews' | 'gallery' | 'ba' | 'seo';
+type AdminTab = 'all' | 'traffic' | 'jetons' | 'qr_laser' | 'quotes' | 'reviews' | 'gallery' | 'ba' | 'seo' | 'mail';
 
 export default function Admin() {
   const { adminCode, isAdmin, login, logout } = useAdmin();
@@ -695,6 +696,7 @@ export default function Admin() {
     { id: 'jetons' as AdminTab, label: 'Scans Jetons Caddie', shortLabel: 'Jetons', icon: BarChart3 },
     { id: 'quotes' as AdminTab, label: `Devis (${quotes.length})`, shortLabel: `Devis`, icon: FileText, count: quotes.length },
     { id: 'reviews' as AdminTab, label: `Avis (${reviews.length})`, shortLabel: `Avis`, icon: Star, count: reviews.length },
+    { id: 'mail' as AdminTab, label: 'Messagerie (E-mails)', shortLabel: 'E-mails', icon: Mail },
     { id: 'qr_laser' as AdminTab, label: 'Générateur Laser QR', shortLabel: 'Laser QR', icon: QrCode },
     { id: 'gallery' as AdminTab, label: 'Galerie Photos', shortLabel: 'Galerie', icon: ImagePlus },
     { id: 'ba' as AdminTab, label: 'Avant / Après', shortLabel: 'Av/Ap', icon: Sparkles },
@@ -849,7 +851,7 @@ export default function Admin() {
       {/* =========================================================================
           MAIN WORKSPACE CONTENT (Responsive for Mobile & Desktop)
           ========================================================================= */}
-      <main className={`max-w-6xl mx-auto px-3 sm:px-6 md:px-12 pt-4 sm:pt-6 ${isLandscapeMobile ? 'admin-landscape-content' : 'w-full'}`}>
+      <main className={`${activeTab === 'mail' ? 'max-w-none px-4 md:px-8' : 'max-w-6xl mx-auto px-3 sm:px-6 md:px-12'} pt-4 sm:pt-6 ${isLandscapeMobile ? 'admin-landscape-content' : 'w-full'}`}>
         
         {/* QUICK METRICS WIDGET RIBBON (Fast touch summary on Mobile) */}
         {!isLandscapeMobile && (
@@ -955,7 +957,7 @@ export default function Admin() {
 
         {/* Desktop / Tablet Horizontal Navigation Tabs (Hidden in pure mobile portrait mode) */}
         {!isLandscapeMobile && (
-          <div className="hidden md:flex items-center gap-2 overflow-x-auto pb-3 mb-6 scrollbar-none">
+          <div className="hidden md:flex flex-wrap items-center gap-2 mb-6">
             {navTabs.map((tab) => {
               const IconComponent = tab.icon;
               const isActive = activeTab === tab.id;
@@ -1668,6 +1670,15 @@ export default function Admin() {
           </div>
         )}
 
+        {/* =========================================================================
+            8. MESSAGERIE D'ENTREPRISE (E-MAILS IMAP & SMTP)
+            ========================================================================= */}
+        {(activeTab === 'all' || activeTab === 'mail') && (
+          <div className="mb-6 sm:mb-8">
+            <MailAdminSection />
+          </div>
+        )}
+
       </main>
 
       {/* =========================================================================
@@ -1826,6 +1837,19 @@ export default function Admin() {
                   <div>
                     <h4 className="text-xs font-semibold text-white">SEO & Blog IA</h4>
                     <p className="text-[10px] text-white/50">Référencement Google</p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => { setActiveTab('mail'); setShowToolsSheet(false); }}
+                  className="p-3.5 rounded-2xl bg-white/5 border border-white/10 hover:border-amber-500/40 text-left flex items-start gap-3 transition-all active:scale-95 cursor-pointer"
+                >
+                  <div className="p-2 rounded-xl bg-amber-500/15 text-amber-300 shrink-0">
+                    <Mail className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-semibold text-white">Messagerie</h4>
+                    <p className="text-[10px] text-white/50">Gestion des e-mails</p>
                   </div>
                 </button>
 
