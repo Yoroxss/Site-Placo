@@ -829,11 +829,16 @@ Réponds STRICTEMENT au format JSON avec la structure exacte suivante :
       return res.json({ success: false, warning: "Configuration de messagerie absente pour l'envoi d'alerte." });
     }
 
+    const isSecure = port === 465;
     const transporter = nodemailer.createTransport({
       host,
       port,
-      secure: true,
+      secure: isSecure,
       auth: { user, pass },
+      tls: {
+        // Important: contourner les vérifications strictes de certificat pour les serveurs de mails d'hébergeurs d'artisans (ex: o2switch, OVH, etc.)
+        rejectUnauthorized: false
+      }
     });
 
     const alertHtml = `
@@ -890,20 +895,27 @@ Réponds STRICTEMENT au format JSON avec la structure exacte suivante :
     `;
 
     try {
-      // Envoyer à l'adresse yonixss@hotmail.fr et à l'adresse pro configurée
-      const recipients = ["yonixss@hotmail.fr", user].filter(Boolean).join(", ");
+      // Envoyer principalement à la boîte pro du gérant (MAIL_USER / contact@plaquiste-arcachon.fr) pour instant-push iPhone
+      const mainProBox = "contact@plaquiste-arcachon.fr";
       
+      // On combine les destinataires (pro, secours hotmail, et boîte d'authentification SMTP si elle diffère)
+      const recipientList = Array.from(new Set([mainProBox, user, "yonixss@hotmail.fr"].filter(Boolean)));
+      const recipientsString = recipientList.join(", ");
+      
+      console.log(`[SMTP] Envoi d'une alerte de devis de la part de "${name}" aux destinataires : ${recipientsString}`);
+
       await transporter.sendMail({
         from: `"Alerte Devis Parat & Bouey" <${user}>`,
-        to: recipients,
+        to: recipientsString,
         subject: `🔔 Nouveau devis : ${name} (${projectType})`,
         html: alertHtml,
         text: `Nouveau devis de ${name} (${phone}) - Projet: ${projectType}\n\nMessage: ${message}`
       });
       
+      console.log(`[SMTP] Alerte de devis de "${name}" envoyée avec succès !`);
       res.json({ success: true });
     } catch (err: any) {
-      console.error("Failed to send quote alert mail:", err);
+      console.error("[SMTP Error] Échec de l'envoi de l'alerte mail de devis:", err);
       res.status(500).json({ error: "Erreur d'envoi d'alerte: " + err.message });
     }
   });

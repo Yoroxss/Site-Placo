@@ -115,9 +115,24 @@
         "createdAt": { "type": "string", "description": "Timestamp" }
       },
       "required": ["page", "device"]
+    },
+    "MailClassification": {
+      "title": "Mail Classification",
+      "description": "Lightweight metadata-only classification of parsed email messages.",
+      "type": "object",
+      "properties": {
+        "priority": { "type": "string", "maxLength": 50 },
+        "reason": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string", "description": "Timestamp" }
+      },
+      "required": ["priority", "createdAt"]
     }
   },
   "firestore": {
+    "mail_classifications/{classificationId}": {
+      "schema": "MailClassification",
+      "description": "Collection of lightweight mail priority classifications."
+    },
     "quotes/{quoteId}": {
       "schema": "QuoteRequest",
       "description": "Collection of quote requests."

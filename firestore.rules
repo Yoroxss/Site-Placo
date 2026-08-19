@@ -46,6 +46,10 @@ service cloud.firestore {
                     && incoming().page is string && incoming().page.size() <= 200;
       allow update, delete: if true;
     }
+
+    match /mail_classifications/{classificationId} {
+      allow read, write: if true;
+    }
     
     match /content/{docId} {
       allow read: if true;

@@ -955,9 +955,9 @@ export default function Admin() {
           </motion.div>
         )}
 
-        {/* Desktop / Tablet Horizontal Navigation Tabs (Hidden in pure mobile portrait mode) */}
+        {/* Desktop / Tablet Horizontal Navigation Tabs (Hidden in pure mobile portrait mode, scrollable on PC/tablet when needed) */}
         {!isLandscapeMobile && (
-          <div className="hidden md:flex flex-wrap items-center gap-2 mb-6">
+          <div className="hidden md:flex items-center gap-2 mb-6 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent whitespace-nowrap max-w-full">
             {navTabs.map((tab) => {
               const IconComponent = tab.icon;
               const isActive = activeTab === tab.id;

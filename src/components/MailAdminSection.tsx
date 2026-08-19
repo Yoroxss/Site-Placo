@@ -5,6 +5,8 @@ import {
   Sparkles, Settings, Bot, Cpu, Check, X, Shield, Clock, FileText, Reply, CornerUpRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { collection, doc, getDocs, writeBatch, serverTimestamp } from 'firebase/firestore';
+import { db } from '../firebase';
 
 interface MailMessage {
   uid: number;
@@ -69,16 +71,45 @@ export default function MailAdminSection() {
 
   const [feedback, setFeedback] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-  // AI Classification states
-  const [classifications, setClassifications] = useState<Record<number, { priority: 'prioritaire' | 'autre'; reason: string }>>({});
+  // AI Classification states (persisted securely in Firestore - metadata only, 100% free and synced across all devices)
+  const [classifications, setClassifications] = useState<Record<string, { priority: 'prioritaire' | 'autre'; reason: string }>>({});
+  const [loadingClassifications, setLoadingClassifications] = useState(false);
+
+  // Load lightweight metadata classifications from Firestore on mount
+  useEffect(() => {
+    const fetchFirestoreClassifications = async () => {
+      setLoadingClassifications(true);
+      try {
+        const querySnapshot = await getDocs(collection(db, 'mail_classifications'));
+        const mapping: Record<string, { priority: 'prioritaire' | 'autre'; reason: string }> = {};
+        querySnapshot.forEach((docSnapshot) => {
+          const data = docSnapshot.data();
+          mapping[docSnapshot.id] = {
+            priority: data.priority,
+            reason: data.reason
+          };
+        });
+        setClassifications(mapping);
+      } catch (err) {
+        console.error("Error loading classifications from Firestore:", err);
+      } finally {
+        setLoadingClassifications(false);
+      }
+    };
+    fetchFirestoreClassifications();
+  }, []);
+
   const [classifying, setClassifying] = useState(false);
   const [activeFilter, setActiveFilter] = useState<'all' | 'priority' | 'other'>('all');
 
-  const classList = Object.values(classifications) as { priority: 'prioritaire' | 'autre'; reason: string }[];
+  // Filter classifications that correspond to the current folder
+  const folderClassList = Object.entries(classifications)
+    .filter(([key]) => key.startsWith(`${selectedFolder}_`))
+    .map(([_, val]) => val) as { priority: 'prioritaire' | 'autre'; reason: string }[];
 
   const filteredMessages = messages.filter(msg => {
     if (activeFilter === 'all') return true;
-    const classification = classifications[msg.uid];
+    const classification = classifications[`${selectedFolder}_${msg.uid}`];
     if (activeFilter === 'priority') {
       return classification?.priority === 'prioritaire';
     }
@@ -283,11 +314,11 @@ export default function MailAdminSection() {
     }
 
     // Filtrer les messages pour ne garder que ceux qui n'ont pas encore été triés/scannés par l'IA
-    const unclassifiedMails = messages.filter(m => !classifications[m.uid]);
+    const unclassifiedMails = messages.filter(m => !classifications[`${selectedFolder}_${m.uid}`]);
     if (unclassifiedMails.length === 0) {
       showFeedback('Tous les e-mails de cette page ont déjà été analysés et triés !', 'success');
       // On bascule automatiquement sur l'onglet prioritaire s'il y en a pour le confort d'utilisation
-      const hasPriorities = (Object.values(classifications) as { priority: 'prioritaire' | 'autre'; reason: string }[]).some(c => c.priority === 'prioritaire');
+      const hasPriorities = folderClassList.some(c => c.priority === 'prioritaire');
       if (hasPriorities) {
         setActiveFilter('priority');
       }
@@ -310,14 +341,25 @@ export default function MailAdminSection() {
       });
       if (res.ok) {
         const data = await res.json();
-        const mapping: Record<number, { priority: 'prioritaire' | 'autre'; reason: string }> = {};
+        const mapping: Record<string, { priority: 'prioritaire' | 'autre'; reason: string }> = {};
         if (data.classifications && Array.isArray(data.classifications)) {
+          const batch = writeBatch(db);
           data.classifications.forEach((item: any) => {
-            mapping[item.uid] = {
+            const key = `${selectedFolder}_${item.uid}`;
+            mapping[key] = {
               priority: item.priority || 'autre',
               reason: item.reason || 'Analyse IA'
             };
+            
+            // Enregistrer uniquement les métadonnées ultra-légères dans Firestore
+            const docRef = doc(db, 'mail_classifications', key);
+            batch.set(docRef, {
+              priority: item.priority || 'autre',
+              reason: item.reason || 'Analyse IA',
+              createdAt: serverTimestamp()
+            });
           });
+          await batch.commit();
         }
         
         // On fusionne les nouvelles classifications avec les anciennes pour garder l'historique
@@ -683,11 +725,11 @@ export default function MailAdminSection() {
                 }`}
               >
                 <span>Prioritaires ✨</span>
-                {classList.length > 0 && (
+                {folderClassList.length > 0 && (
                   <span className={`ml-1 px-1.5 py-0.2 rounded-full text-[9px] font-extrabold ${
                     activeFilter === 'priority' ? 'bg-black text-emerald-400' : 'bg-emerald-500/20 text-emerald-300'
                   }`}>
-                    {classList.filter(c => c.priority === 'prioritaire').length}
+                    {folderClassList.filter(c => c.priority === 'prioritaire').length}
                   </span>
                 )}
               </button>
@@ -700,9 +742,9 @@ export default function MailAdminSection() {
                 }`}
               >
                 <span>Autres / Pubs 🚫</span>
-                {classList.length > 0 && (
+                {folderClassList.length > 0 && (
                   <span className="ml-1 px-1.5 py-0.2 rounded-full bg-white/10 text-white/70 text-[9px]">
-                    {classList.filter(c => c.priority === 'autre').length}
+                    {folderClassList.filter(c => c.priority === 'autre').length}
                   </span>
                 )}
               </button>
@@ -751,7 +793,7 @@ export default function MailAdminSection() {
             ) : (
               filteredMessages.map((msg) => {
                 const isSelected = selectedMail?.uid === msg.uid;
-                const classification = classifications[msg.uid];
+                const classification = classifications[`${selectedFolder}_${msg.uid}`];
                 return (
                   <div
                     key={msg.uid}
