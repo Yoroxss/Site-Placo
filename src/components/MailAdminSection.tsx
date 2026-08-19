@@ -281,13 +281,26 @@ export default function MailAdminSection() {
       showFeedback('Aucun e-mail à analyser.', 'error');
       return;
     }
+
+    // Filtrer les messages pour ne garder que ceux qui n'ont pas encore été triés/scannés par l'IA
+    const unclassifiedMails = messages.filter(m => !classifications[m.uid]);
+    if (unclassifiedMails.length === 0) {
+      showFeedback('Tous les e-mails de cette page ont déjà été analysés et triés !', 'success');
+      // On bascule automatiquement sur l'onglet prioritaire s'il y en a pour le confort d'utilisation
+      const hasPriorities = (Object.values(classifications) as { priority: 'prioritaire' | 'autre'; reason: string }[]).some(c => c.priority === 'prioritaire');
+      if (hasPriorities) {
+        setActiveFilter('priority');
+      }
+      return;
+    }
+
     setClassifying(true);
     try {
       const res = await fetch('/api/mail/ai-classify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          emails: messages.map(m => ({
+          emails: unclassifiedMails.map(m => ({
             uid: m.uid,
             from: m.from,
             subject: m.subject,
@@ -306,10 +319,18 @@ export default function MailAdminSection() {
             };
           });
         }
-        setClassifications(mapping);
-        showFeedback('Boîte de réception analysée et triée avec succès par Gemini !', 'success');
-        // Auto filter to prioritaires if they exist
-        if (Object.values(mapping).some(c => c.priority === 'prioritaire')) {
+        
+        // On fusionne les nouvelles classifications avec les anciennes pour garder l'historique
+        setClassifications(prev => ({
+          ...prev,
+          ...mapping
+        }));
+
+        showFeedback(`${unclassifiedMails.length} nouveau(x) courriel(s) analysé(s) et trié(s) par l'IA !`, 'success');
+        
+        // On active l'onglet priorité si de nouveaux prioritaires sont trouvés
+        const newPrioritiesFound = Object.values(mapping).some(c => c.priority === 'prioritaire');
+        if (newPrioritiesFound) {
           setActiveFilter('priority');
         }
       } else {
