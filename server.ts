@@ -484,8 +484,8 @@ Réponds UNIQUEMENT au format JSON avec cette structure exacte :
   // ==========================================
 
   function getImapClient() {
-    const user = process.env.MAIL_USER;
-    const pass = process.env.MAIL_PASS;
+    const user = process.env.MAIL_USER || "contact@plaquiste-arcachon.fr";
+    const pass = process.env.MAIL_PASS || "01m53YCB28";
     const host = process.env.MAIL_IMAP_HOST || "mail.plaquiste-arcachon.fr";
     const port = parseInt(process.env.MAIL_IMAP_PORT || "993", 10);
 
@@ -644,8 +644,8 @@ Réponds UNIQUEMENT au format JSON avec cette structure exacte :
       return res.status(400).json({ error: "Destinataire, objet et contenu de message requis." });
     }
 
-    const user = process.env.MAIL_USER;
-    const pass = process.env.MAIL_PASS;
+    const user = process.env.MAIL_USER || "contact@plaquiste-arcachon.fr";
+    const pass = process.env.MAIL_PASS || "01m53YCB28";
     const host = process.env.MAIL_SMTP_HOST || "mail.plaquiste-arcachon.fr";
     const port = parseInt(process.env.MAIL_SMTP_PORT || "465", 10);
 
@@ -842,8 +842,8 @@ Réponds STRICTEMENT au format JSON avec la structure exacte suivante :
   app.post("/api/notify-new-quote", async (req, res) => {
     const { name, phone, email, projectType, message } = req.body;
     
-    const user = process.env.MAIL_USER;
-    const pass = process.env.MAIL_PASS;
+    const user = process.env.MAIL_USER || "contact@plaquiste-arcachon.fr";
+    const pass = process.env.MAIL_PASS || "01m53YCB28";
     const host = process.env.MAIL_SMTP_HOST || "mail.plaquiste-arcachon.fr";
     const port = parseInt(process.env.MAIL_SMTP_PORT || "465", 10);
 
