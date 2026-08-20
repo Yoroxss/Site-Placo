@@ -499,7 +499,10 @@ Réponds UNIQUEMENT au format JSON avec cette structure exacte :
       secure: true,
       auth: { user, pass },
       logger: false,
-      emitLogs: false
+      emitLogs: false,
+      tls: {
+        rejectUnauthorized: false
+      }
     });
 
     return client as any;
@@ -655,6 +658,9 @@ Réponds UNIQUEMENT au format JSON avec cette structure exacte :
       port,
       secure: true,
       auth: { user, pass },
+      tls: {
+        rejectUnauthorized: false
+      }
     });
 
     try {
