@@ -117,24 +117,27 @@ export async function fetchVisitorLocation(): Promise<GeoLocationInfo> {
     clearTimeout(timeoutId);
 
     if (res.ok) {
-      const data = await res.json();
-      if (data && data.city) {
-        const geo: GeoLocationInfo = {
-          city: data.city || 'Arcachon',
-          region: data.region || 'Nouvelle-Aquitaine',
-          department: data.department || (data.postalCode?.startsWith('33') ? 'Gironde (33)' : data.region || 'Gironde'),
-          postalCode: data.postalCode || '33120',
-          country: data.country || 'France',
-          countryCode: data.countryCode || 'FR',
-          latitude: data.latitude || 44.6586,
-          longitude: data.longitude || -1.1648,
-          isp: data.isp || ''
-        };
-        cachedGeoLocation = geo;
-        try {
-          sessionStorage.setItem('pb_visitor_geo', JSON.stringify(geo));
-        } catch {}
-        return geo;
+      const contentType = res.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        const data = await res.json();
+        if (data && data.city) {
+          const geo: GeoLocationInfo = {
+            city: data.city || 'Arcachon',
+            region: data.region || 'Nouvelle-Aquitaine',
+            department: data.department || (data.postalCode?.startsWith('33') ? 'Gironde (33)' : data.region || 'Gironde'),
+            postalCode: data.postalCode || '33120',
+            country: data.country || 'France',
+            countryCode: data.countryCode || 'FR',
+            latitude: data.latitude || 44.6586,
+            longitude: data.longitude || -1.1648,
+            isp: data.isp || ''
+          };
+          cachedGeoLocation = geo;
+          try {
+            sessionStorage.setItem('pb_visitor_geo', JSON.stringify(geo));
+          } catch {}
+          return geo;
+        }
       }
     }
   } catch {
