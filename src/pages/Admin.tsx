@@ -35,7 +35,14 @@ export default function Admin() {
   const [baTitle, setBaTitle] = useState('');
   const [beforeFile, setBeforeFile] = useState<File | null>(null);
   const [afterFile, setAfterFile] = useState<File | null>(null);
+  const [baBeforeUrl, setBaBeforeUrl] = useState('');
+  const [baAfterUrl, setBaAfterUrl] = useState('');
+  const [baIsUrlMode, setBaIsUrlMode] = useState(false);
   const [baUploading, setBaUploading] = useState(false);
+
+  // States for Before/After editing
+  const [editingBa, setEditingBa] = useState<{ id: string; title: string; beforeUrl: string; afterUrl: string } | null>(null);
+  const [baSaving, setBaSaving] = useState(false);
 
   // States for manual Review creation
   const [revAuthor, setRevAuthor] = useState('');
@@ -55,6 +62,49 @@ export default function Admin() {
   const [photoReanalyzing, setPhotoReanalyzing] = useState(false);
   const [uploadDirectives, setUploadDirectives] = useState("");
   const [reanalyzeDirectives, setReanalyzeDirectives] = useState("");
+
+  // States for manual Photo additions by URL (o2switch / external links)
+  const [isAddByUrlOpen, setIsAddByUrlOpen] = useState(false);
+  const [newPhotoUrl, setNewPhotoUrl] = useState("");
+  const [newPhotoTitle, setNewPhotoTitle] = useState("");
+  const [newPhotoDescription, setNewPhotoDescription] = useState("");
+  const [newPhotoAlt, setNewPhotoAlt] = useState("");
+  const [isAddingPhotoByUrl, setIsAddingPhotoByUrl] = useState(false);
+  const [isScanningUrl, setIsScanningUrl] = useState(false);
+
+  const handleScanUrlWithAi = async () => {
+    if (!newPhotoUrl.trim()) return;
+    setIsScanningUrl(true);
+    setFeedback({ message: "Analyse de l'image externe par l'IA en cours...", type: 'success' });
+    try {
+      const res = await fetch('/api/generate-image-metadata', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          imageUrl: newPhotoUrl.trim(),
+          userDirectives: uploadDirectives
+        })
+      });
+      if (!res.ok) {
+        const contentType = res.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+           const errorData = await res.json().catch(() => null);
+           throw new Error(errorData?.error || "Erreur de réponse du serveur d'analyse.");
+        }
+        throw new Error("Impossible de joindre le service d'analyse IA.");
+      }
+      const data = await res.json();
+      setNewPhotoTitle(data.title || "");
+      setNewPhotoDescription(data.description || "");
+      setNewPhotoAlt(data.alt || "");
+      setFeedback({ message: "Image o2switch analysée avec succès par l'IA !", type: 'success' });
+    } catch (err: any) {
+      console.error("Error scanning external url:", err);
+      setFeedback({ message: "Échec de l'analyse IA : " + (err.message || err), type: 'error' });
+    } finally {
+      setIsScanningUrl(false);
+    }
+  };
 
   const [activeTab, setActiveTab] = useState<AdminTab>('traffic');
 
@@ -338,13 +388,19 @@ export default function Admin() {
     if (!editingPhoto) return;
     setPhotoReanalyzing(true);
     try {
+      const isBase64 = editingPhoto.url.startsWith('data:');
+      const bodyPayload: any = { userDirectives: reanalyzeDirectives };
+      
+      if (isBase64) {
+        bodyPayload.imageBase64 = await resizeBase64Image(editingPhoto.url, 800, 800, 0.70);
+      } else {
+        bodyPayload.imageUrl = editingPhoto.url;
+      }
+
       const res = await fetch('/api/generate-image-metadata', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          imageBase64: await resizeBase64Image(editingPhoto.url, 800, 800, 0.70),
-          userDirectives: reanalyzeDirectives
-        })
+        body: JSON.stringify(bodyPayload)
       });
       if (!res.ok) {
         const contentType = res.headers.get("content-type");
@@ -388,7 +444,9 @@ export default function Admin() {
       await updateDoc(doc(db, 'gallery', editingPhoto.id), {
         title: editingPhoto.title.trim(),
         description: editingPhoto.description.trim(),
-        alt: editingPhoto.alt.trim()
+        alt: editingPhoto.alt.trim(),
+        url: editingPhoto.url.trim(),
+        adminCode: adminCode || '0107'
       });
       setFeedback({ message: "Photo mise à jour avec succès !", type: 'success' });
       setEditingPhoto(null);
@@ -397,6 +455,33 @@ export default function Admin() {
       setFeedback({ message: "Erreur lors de la sauvegarde: " + (err.message || err), type: 'error' });
     } finally {
       setPhotoSaving(false);
+    }
+  };
+
+  const handleAddPhotoByUrl = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPhotoUrl.trim()) return;
+    setIsAddingPhotoByUrl(true);
+    try {
+      await addDoc(collection(db, 'gallery'), {
+        url: newPhotoUrl.trim(),
+        title: newPhotoTitle.trim() || "Chantier Plâtrerie & Rénovation",
+        description: newPhotoDescription.trim() || "Réalisation soignée de plâtrerie, cloisons et finitions sur le Bassin d'Arcachon par Parat & Bouey.",
+        alt: newPhotoAlt.trim() || "Chantier de plâtrerie et aménagement intérieur Bassin d'Arcachon",
+        createdAt: serverTimestamp(),
+        adminCode
+      });
+      setFeedback({ message: "Photo externe ajoutée avec succès !", type: 'success' });
+      setNewPhotoUrl("");
+      setNewPhotoTitle("");
+      setNewPhotoDescription("");
+      setNewPhotoAlt("");
+      setIsAddByUrlOpen(false);
+    } catch (err: any) {
+      console.error("Error adding photo by URL:", err);
+      setFeedback({ message: "Erreur lors de l'ajout par URL: " + (err.message || err), type: 'error' });
+    } finally {
+      setIsAddingPhotoByUrl(false);
     }
   };
 
@@ -430,27 +515,46 @@ export default function Admin() {
 
   const handleBaUpload = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!beforeFile || !afterFile || !baTitle) {
-      setFeedback({ message: "Veuillez fournir un titre et les deux images.", type: 'error' });
+    if (!baTitle) {
+      setFeedback({ message: "Veuillez fournir un titre pour la réalisation.", type: 'error' });
       return;
+    }
+
+    if (baIsUrlMode) {
+      if (!baBeforeUrl.trim() || !baAfterUrl.trim()) {
+        setFeedback({ message: "Veuillez renseigner les URL absolues pour l'image Avant et l'image Après.", type: 'error' });
+        return;
+      }
+    } else {
+      if (!beforeFile || !afterFile) {
+        setFeedback({ message: "Veuillez sélectionner l'image Avant et l'image Après.", type: 'error' });
+        return;
+      }
     }
 
     try {
       setBaUploading(true);
-      const beforeBase64 = await resizeImage(beforeFile, 1920, 1920, 0.82);
-      const afterBase64 = await resizeImage(afterFile, 1920, 1920, 0.82);
+      let beforeFinalUrl = baBeforeUrl.trim();
+      let afterFinalUrl = baAfterUrl.trim();
+
+      if (!baIsUrlMode) {
+        beforeFinalUrl = await resizeImage(beforeFile!, 1920, 1920, 0.82);
+        afterFinalUrl = await resizeImage(afterFile!, 1920, 1920, 0.82);
+      }
 
       await addDoc(collection(db, 'beforeAfter'), {
-        title: baTitle,
-        beforeUrl: beforeBase64,
-        afterUrl: afterBase64,
+        title: baTitle.trim(),
+        beforeUrl: beforeFinalUrl,
+        afterUrl: afterFinalUrl,
         createdAt: serverTimestamp(),
-        adminCode
+        adminCode: adminCode || '0107'
       });
 
       setBaTitle('');
       setBeforeFile(null);
       setAfterFile(null);
+      setBaBeforeUrl('');
+      setBaAfterUrl('');
       if (beforeInputRef.current) beforeInputRef.current.value = '';
       if (afterInputRef.current) afterInputRef.current.value = '';
       setFeedback({ message: "Images Avant/Après ajoutées avec succès !", type: 'success' });
@@ -459,6 +563,36 @@ export default function Admin() {
       setFeedback({ message: "Erreur d'upload: " + getErrorMessage(error), type: 'error' });
     } finally {
       setBaUploading(false);
+    }
+  };
+
+  const handleStartEditBa = (item: any) => {
+    setEditingBa({
+      id: item.id,
+      title: item.title || '',
+      beforeUrl: item.beforeUrl || '',
+      afterUrl: item.afterUrl || ''
+    });
+  };
+
+  const handleSaveEditBa = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingBa) return;
+    setBaSaving(true);
+    try {
+      await updateDoc(doc(db, 'beforeAfter', editingBa.id), {
+        title: editingBa.title.trim(),
+        beforeUrl: editingBa.beforeUrl.trim(),
+        afterUrl: editingBa.afterUrl.trim(),
+        adminCode: adminCode || '0107'
+      });
+      setFeedback({ message: "Comparaison Avant/Après enregistrée avec succès !", type: 'success' });
+      setEditingBa(null);
+    } catch (error) {
+      console.error("Error saving beforeAfter edit:", error);
+      setFeedback({ message: "Erreur lors de la modification : " + getErrorMessage(error), type: 'error' });
+    } finally {
+      setBaSaving(false);
     }
   };
 
@@ -1426,18 +1560,135 @@ export default function Admin() {
                   className="hidden"
                 />
                 
-                <button 
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                  className="bg-amber-500/15 border border-amber-500/30 text-amber-300 px-4 py-2.5 rounded-xl text-xs uppercase tracking-wider font-bold flex items-center justify-center gap-2 hover:bg-amber-500/25 transition-colors disabled:opacity-50 cursor-pointer shadow-md"
-                >
-                  {uploading ? (
-                    <><Loader2 className="w-4 h-4 animate-spin" /> Analyse IA...</>
-                  ) : (
-                    <><ImagePlus className="w-4 h-4" /> Ajouter une photo</>
-                  )}
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="bg-amber-500/15 border border-amber-500/30 text-amber-300 px-4 py-2.5 rounded-xl text-xs uppercase tracking-wider font-bold flex items-center justify-center gap-2 hover:bg-amber-500/25 transition-colors disabled:opacity-50 cursor-pointer shadow-md"
+                  >
+                    {uploading ? (
+                      <><Loader2 className="w-4 h-4 animate-spin" /> Analyse IA...</>
+                    ) : (
+                      <><ImagePlus className="w-4 h-4" /> Importer Photo</>
+                    )}
+                  </button>
+
+                  <button 
+                    onClick={() => setIsAddByUrlOpen(!isAddByUrlOpen)}
+                    className={`px-4 py-2.5 rounded-xl text-xs uppercase tracking-wider font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-md ${
+                      isAddByUrlOpen 
+                        ? 'bg-amber-500 text-black font-bold shadow-lg shadow-amber-500/25' 
+                        : 'bg-white/5 border border-white/10 text-white/80 hover:bg-white/10'
+                    }`}
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    <span>Lien URL / o2switch</span>
+                  </button>
+                </div>
               </div>
+
+              {isAddByUrlOpen && (
+                <motion.form 
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  onSubmit={handleAddPhotoByUrl}
+                  className="bg-white/5 border border-white/10 rounded-2xl p-4 sm:p-5 mb-6 space-y-4"
+                >
+                  <div className="flex items-center justify-between pb-2 border-b border-white/5">
+                    <h3 className="text-xs uppercase font-bold tracking-wider text-amber-300">Ajouter une image via un lien direct (o2switch ou autre)</h3>
+                    <button 
+                      type="button" 
+                      onClick={() => setIsAddByUrlOpen(false)}
+                      className="text-white/40 hover:text-white text-lg p-1"
+                    >
+                      ×
+                    </button>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-widest text-white/60 mb-1">Lien / URL absolue de l'image *</label>
+                    <div className="flex gap-2">
+                      <input 
+                        type="url" 
+                        required
+                        value={newPhotoUrl}
+                        onChange={(e) => setNewPhotoUrl(e.target.value)}
+                        placeholder="Ex: https://www.plaquiste-arcachon.fr/images/mon-nouveau-chantier.webp"
+                        className="flex-1 bg-black/40 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-400 font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleScanUrlWithAi}
+                        disabled={isScanningUrl || !newPhotoUrl.trim()}
+                        className="bg-amber-500/15 border border-amber-500/30 hover:bg-amber-500/30 text-amber-300 px-3.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer disabled:opacity-40 transition-colors shrink-0"
+                      >
+                        {isScanningUrl ? (
+                          <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Analyse...</>
+                        ) : (
+                          <><Sparkles className="w-3.5 h-3.5 text-amber-400" /> Scanner l'image avec l'IA</>
+                        )}
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-white/40 mt-1">Collez ici l'adresse absolue de votre fichier image hébergé sur o2switch. Cliquez sur le bouton "Scanner" pour laisser l'IA analyser l'image et pré-remplir l'ensemble des balises SEO (titre, alt, description) !</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] uppercase tracking-widest text-white/60 mb-1">Titre de la photo (SEO) *</label>
+                      <input 
+                        type="text" 
+                        required
+                        value={newPhotoTitle}
+                        onChange={(e) => setNewPhotoTitle(e.target.value)}
+                        placeholder="Ex: Doublage de cloisons BA13 à Salles"
+                        className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] uppercase tracking-widest text-white/60 mb-1">Texte alternatif Alt *</label>
+                      <input 
+                        type="text" 
+                        required
+                        value={newPhotoAlt}
+                        onChange={(e) => setNewPhotoAlt(e.target.value)}
+                        placeholder="Ex: Pose de rails et placo par Parat & Bouey"
+                        className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-widest text-white/60 mb-1">Description détaillée *</label>
+                    <textarea 
+                      required
+                      rows={2}
+                      value={newPhotoDescription}
+                      onChange={(e) => setNewPhotoDescription(e.target.value)}
+                      placeholder="Décrivez brièvement les travaux..."
+                      className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-400 resize-none leading-relaxed"
+                    />
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-2">
+                    <button 
+                      type="button" 
+                      onClick={() => setIsAddByUrlOpen(false)}
+                      className="px-3.5 py-2 text-xs text-white/70 hover:text-white transition-colors cursor-pointer"
+                    >
+                      Annuler
+                    </button>
+                    <button 
+                      type="submit"
+                      disabled={isAddingPhotoByUrl || !newPhotoUrl}
+                      className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-xl text-xs uppercase tracking-wider transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-md animate-none"
+                    >
+                      {isAddingPhotoByUrl ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                      <span>Ajouter cette photo</span>
+                    </button>
+                  </div>
+                </motion.form>
+              )}
 
               <div className="bg-white/5 border border-white/10 rounded-2xl p-4 mb-6 space-y-2.5">
                 <label className="block text-xs uppercase tracking-wider text-amber-300 font-mono">
@@ -1476,7 +1727,7 @@ export default function Admin() {
                     <div key={image.id} className="group relative bg-black/40 rounded-xl overflow-hidden border border-white/10 flex flex-col justify-between hover:border-amber-500/30 transition-all">
                       <div>
                         <div className="aspect-video relative overflow-hidden bg-black/60">
-                          <img src={image.url} alt={image.alt} className="w-full h-full object-cover" />
+                          <img src={image.url || null} alt={image.alt} className="w-full h-full object-cover" />
                           {image.isFavorite && (
                             <div className="absolute top-2 left-2 bg-amber-500 text-black px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 shadow-lg backdrop-blur-sm z-10 font-mono">
                               <Star className="w-3 h-3 fill-black text-black" />
@@ -1552,6 +1803,23 @@ export default function Admin() {
             <div className="md:col-span-5 bg-white/5 p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-white/10 backdrop-blur-md">
               <h2 className="text-base sm:text-lg tracking-widest uppercase text-[#d1d1c4] mb-4 font-light">Ajouter un Avant / Après</h2>
               
+              <div className="flex bg-black/40 p-1 rounded-xl border border-white/10 mb-4">
+                <button
+                  type="button"
+                  onClick={() => setBaIsUrlMode(false)}
+                  className={`flex-1 py-2 text-[9px] uppercase tracking-wider font-semibold rounded-lg transition-all cursor-pointer ${!baIsUrlMode ? 'bg-amber-500 text-black shadow-md font-bold' : 'text-white/60 hover:text-white'}`}
+                >
+                  Fichiers locaux
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBaIsUrlMode(true)}
+                  className={`flex-1 py-2 text-[9px] uppercase tracking-wider font-semibold rounded-lg transition-all cursor-pointer ${baIsUrlMode ? 'bg-amber-500 text-black shadow-md font-bold' : 'text-white/60 hover:text-white'}`}
+                >
+                  Liens o2switch
+                </button>
+              </div>
+
               <form onSubmit={handleBaUpload} className="space-y-4">
                 <div>
                   <label className="block text-[10px] uppercase tracking-widest text-white/50 mb-1.5">Titre de la réalisation</label>
@@ -1565,53 +1833,80 @@ export default function Admin() {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-widest text-white/50 mb-1.5">Photo Avant</label>
-                    <input 
-                      type="file" 
-                      ref={beforeInputRef}
-                      onChange={(e) => setBeforeFile(e.target.files?.[0] || null)}
-                      accept="image/*"
-                      className="hidden"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => beforeInputRef.current?.click()}
-                      className={`w-full py-3 px-3 rounded-xl border text-xs flex flex-col items-center justify-center gap-1.5 transition-colors cursor-pointer ${beforeFile ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300' : 'bg-black/30 border-white/10 text-white/70 hover:bg-white/5'}`}
-                    >
-                      <ImagePlus className="w-4 h-4" />
-                      <span className="truncate max-w-full text-[10px]">
-                        {beforeFile ? beforeFile.name : 'Choisir Avant'}
-                      </span>
-                    </button>
-                  </div>
+                {!baIsUrlMode ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] uppercase tracking-widest text-white/50 mb-1.5">Photo Avant</label>
+                      <input 
+                        type="file" 
+                        ref={beforeInputRef}
+                        onChange={(e) => setBeforeFile(e.target.files?.[0] || null)}
+                        accept="image/*"
+                        className="hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => beforeInputRef.current?.click()}
+                        className={`w-full py-3 px-3 rounded-xl border text-xs flex flex-col items-center justify-center gap-1.5 transition-colors cursor-pointer ${beforeFile ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300' : 'bg-black/30 border-white/10 text-white/70 hover:bg-white/5'}`}
+                      >
+                        <ImagePlus className="w-4 h-4" />
+                        <span className="truncate max-w-full text-[10px]">
+                          {beforeFile ? beforeFile.name : 'Choisir Avant'}
+                        </span>
+                      </button>
+                    </div>
 
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-widest text-white/50 mb-1.5">Photo Après</label>
-                    <input 
-                      type="file" 
-                      ref={afterInputRef}
-                      onChange={(e) => setAfterFile(e.target.files?.[0] || null)}
-                      accept="image/*"
-                      className="hidden"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => afterInputRef.current?.click()}
-                      className={`w-full py-3 px-3 rounded-xl border text-xs flex flex-col items-center justify-center gap-1.5 transition-colors cursor-pointer ${afterFile ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300' : 'bg-black/30 border-white/10 text-white/70 hover:bg-white/5'}`}
-                    >
-                      <ImagePlus className="w-4 h-4" />
-                      <span className="truncate max-w-full text-[10px]">
-                        {afterFile ? afterFile.name : 'Choisir Après'}
-                      </span>
-                    </button>
+                    <div>
+                      <label className="block text-[10px] uppercase tracking-widest text-white/50 mb-1.5">Photo Après</label>
+                      <input 
+                        type="file" 
+                        ref={afterInputRef}
+                        onChange={(e) => setAfterFile(e.target.files?.[0] || null)}
+                        accept="image/*"
+                        className="hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => afterInputRef.current?.click()}
+                        className={`w-full py-3 px-3 rounded-xl border text-xs flex flex-col items-center justify-center gap-1.5 transition-colors cursor-pointer ${afterFile ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300' : 'bg-black/30 border-white/10 text-white/70 hover:bg-white/5'}`}
+                      >
+                        <ImagePlus className="w-4 h-4" />
+                        <span className="truncate max-w-full text-[10px]">
+                          {afterFile ? afterFile.name : 'Choisir Après'}
+                        </span>
+                      </button>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-[10px] uppercase tracking-widest text-white/50 mb-1">Lien Image Avant (o2switch) *</label>
+                      <input 
+                        type="url"
+                        required
+                        value={baBeforeUrl}
+                        onChange={(e) => setBaBeforeUrl(e.target.value)}
+                        placeholder="Ex: https://photo.plaquiste-arcachon.fr/avant-salon.webp"
+                        className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white outline-none focus:border-amber-400 font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] uppercase tracking-widest text-white/50 mb-1">Lien Image Après (o2switch) *</label>
+                      <input 
+                        type="url"
+                        required
+                        value={baAfterUrl}
+                        onChange={(e) => setBaAfterUrl(e.target.value)}
+                        placeholder="Ex: https://photo.plaquiste-arcachon.fr/apres-salon.webp"
+                        className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white outline-none focus:border-amber-400 font-mono"
+                      />
+                    </div>
+                  </div>
+                )}
 
                 <button 
                   type="submit"
-                  disabled={baUploading || !beforeFile || !afterFile || !baTitle}
+                  disabled={baUploading || (!baIsUrlMode && (!beforeFile || !afterFile)) || (baIsUrlMode && (!baBeforeUrl.trim() || !baAfterUrl.trim())) || !baTitle}
                   className="w-full bg-amber-500 text-black py-3 rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-amber-400 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer shadow-md active:scale-98"
                 >
                   {baUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Publier la comparaison'}
@@ -1631,25 +1926,34 @@ export default function Admin() {
               ) : (
                 <div className="space-y-4 max-h-[500px] overflow-y-auto pr-1">
                   {beforeAfterItems.map(item => (
-                    <div key={item.id} className="bg-black/40 border border-white/10 rounded-2xl p-4 relative group">
+                    <div key={item.id} className="bg-black/40 border border-white/10 rounded-2xl p-4 relative group animate-fade-in">
                       <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-xs sm:text-sm font-semibold text-white truncate">{item.title}</h3>
-                        <button 
-                          onClick={() => handleDeleteBa(item.id)}
-                          className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
-                          title="Supprimer"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <h3 className="text-xs sm:text-sm font-semibold text-white truncate mr-2">{item.title}</h3>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button 
+                            onClick={() => handleStartEditBa(item)}
+                            className="p-1.5 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 rounded-lg transition-colors cursor-pointer"
+                            title="Modifier"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteBa(item.id)}
+                            className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
+                            title="Supprimer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-3">
                         <div className="relative rounded-xl overflow-hidden aspect-video border border-white/10">
-                          <img src={item.beforeUrl} alt="Avant" className="w-full h-full object-cover" />
+                          <img src={item.beforeUrl || null} alt="Avant" className="w-full h-full object-cover" />
                           <span className="absolute bottom-1.5 left-1.5 bg-black/70 px-2 py-0.5 rounded text-[9px] uppercase font-mono tracking-wider">Avant</span>
                         </div>
                         <div className="relative rounded-xl overflow-hidden aspect-video border border-white/10">
-                          <img src={item.afterUrl} alt="Après" className="w-full h-full object-cover" />
+                          <img src={item.afterUrl || null} alt="Après" className="w-full h-full object-cover" />
                           <span className="absolute bottom-1.5 left-1.5 bg-amber-500 text-black px-2 py-0.5 rounded text-[9px] uppercase font-mono tracking-wider font-bold">Après</span>
                         </div>
                       </div>
@@ -2346,7 +2650,7 @@ export default function Admin() {
             <div className="grid grid-cols-1 sm:grid-cols-12 gap-5 mb-5">
               <div className="sm:col-span-5">
                 <div className="rounded-xl overflow-hidden border border-white/10 aspect-video sm:aspect-square bg-black">
-                  <img src={editingPhoto.url} alt={editingPhoto.alt} className="w-full h-full object-cover" />
+                  <img src={editingPhoto.url || null} alt={editingPhoto.alt} className="w-full h-full object-cover" />
                 </div>
                 <button
                   type="button"
@@ -2398,10 +2702,23 @@ export default function Admin() {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-white/60 mb-1">Texte alternatif Alt (Accessibilité & Google Images)</label>
+                 <div>
+                  <label className="block text-[10px] uppercase tracking-widest text-white/60 mb-1">Lien / URL absolue de l'image (Base64 ou o2switch) *</label>
                   <input 
                     type="text" 
+                    required
+                    value={editingPhoto.url} 
+                    onChange={(e) => setEditingPhoto({ ...editingPhoto, url: e.target.value })}
+                    placeholder="Ex: https://www.plaquiste-arcachon.fr/images/mon-nouveau-chantier.webp"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-400 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] uppercase tracking-widest text-white/60 mb-1">Texte alternatif Alt (Accessibilité & Google Images) *</label>
+                  <input 
+                    type="text" 
+                    required
                     value={editingPhoto.alt} 
                     onChange={(e) => setEditingPhoto({ ...editingPhoto, alt: e.target.value })}
                     placeholder="Ex: Chantier de pose de cloisons BA13 et bandes à joint à Arcachon"
@@ -2428,6 +2745,159 @@ export default function Admin() {
                 </div>
               </form>
             </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Edit Before/After Modal */}
+      {editingBa && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-[#141414] border border-white/15 p-5 sm:p-7 rounded-2xl sm:rounded-3xl max-w-2xl w-full shadow-2xl max-h-[92vh] overflow-y-auto"
+          >
+            <div className="flex items-center justify-between mb-5 border-b border-white/10 pb-3">
+              <div>
+                <h3 className="text-base sm:text-lg font-semibold text-white flex items-center gap-2">
+                  <Edit3 className="w-4 h-4 text-amber-400" />
+                  Modifier la comparaison Avant / Après
+                </h3>
+                <p className="text-xs text-white/50">Modifiez le titre de la réalisation ou mettez à jour les liens de vos photos.</p>
+              </div>
+              <button 
+                onClick={() => setEditingBa(null)}
+                className="p-1.5 text-white/50 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditBa} className="space-y-4">
+              <div>
+                <label className="block text-[10px] uppercase tracking-widest text-white/60 mb-1">Titre de la réalisation *</label>
+                <input 
+                  type="text" 
+                  required
+                  value={editingBa.title} 
+                  onChange={(e) => setEditingBa({ ...editingBa, title: e.target.value })}
+                  placeholder="Ex: Rénovation de faux-plafond suspendu - Audenge"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-400"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                {/* Avant side */}
+                <div className="space-y-2 p-3 bg-black/40 rounded-xl border border-white/5">
+                  <span className="block text-[10px] uppercase tracking-widest text-amber-300 font-bold">Image Avant</span>
+                  <div className="aspect-video rounded-lg overflow-hidden border border-white/10 bg-black/60 mb-2">
+                    <img src={editingBa.beforeUrl || null} alt="Aperçu Avant" className="w-full h-full object-cover" />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-widest text-white/50 mb-1">Lien / URL Avant *</label>
+                    <input 
+                      type="text" 
+                      required
+                      value={editingBa.beforeUrl} 
+                      onChange={(e) => setEditingBa({ ...editingBa, beforeUrl: e.target.value })}
+                      placeholder="Lien absolu o2switch ou Base64"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-[10px] text-white focus:outline-none focus:border-amber-400 font-mono"
+                    />
+                  </div>
+                  <div className="pt-1">
+                    <input 
+                      type="file"
+                      id="edit-ba-before-file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          try {
+                            const base64 = await resizeImage(file, 1920, 1920, 0.82);
+                            setEditingBa({ ...editingBa, beforeUrl: base64 });
+                            setFeedback({ message: "Photo Avant mise à jour localement (Base64)", type: 'success' });
+                          } catch (err: any) {
+                            setFeedback({ message: err.message || "Erreur de chargement", type: 'error' });
+                          }
+                        }
+                      }}
+                    />
+                    <label 
+                      htmlFor="edit-ba-before-file"
+                      className="w-full py-1.5 bg-white/5 border border-white/10 hover:bg-white/10 text-white/80 rounded-lg text-[9px] uppercase tracking-wider font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <ImagePlus className="w-3 h-3" />
+                      Remplacer par fichier
+                    </label>
+                  </div>
+                </div>
+
+                {/* Après side */}
+                <div className="space-y-2 p-3 bg-black/40 rounded-xl border border-white/5">
+                  <span className="block text-[10px] uppercase tracking-widest text-amber-400 font-bold">Image Après</span>
+                  <div className="aspect-video rounded-lg overflow-hidden border border-white/10 bg-black/60 mb-2">
+                    <img src={editingBa.afterUrl || null} alt="Aperçu Après" className="w-full h-full object-cover" />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-widest text-white/50 mb-1">Lien / URL Après *</label>
+                    <input 
+                      type="text" 
+                      required
+                      value={editingBa.afterUrl} 
+                      onChange={(e) => setEditingBa({ ...editingBa, afterUrl: e.target.value })}
+                      placeholder="Lien absolu o2switch ou Base64"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-[10px] text-white focus:outline-none focus:border-amber-400 font-mono"
+                    />
+                  </div>
+                  <div className="pt-1">
+                    <input 
+                      type="file"
+                      id="edit-ba-after-file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          try {
+                            const base64 = await resizeImage(file, 1920, 1920, 0.82);
+                            setEditingBa({ ...editingBa, afterUrl: base64 });
+                            setFeedback({ message: "Photo Après mise à jour localement (Base64)", type: 'success' });
+                          } catch (err: any) {
+                            setFeedback({ message: err.message || "Erreur de chargement", type: 'error' });
+                          }
+                        }
+                      }}
+                    />
+                    <label 
+                      htmlFor="edit-ba-after-file"
+                      className="w-full py-1.5 bg-white/5 border border-white/10 hover:bg-white/10 text-white/80 rounded-lg text-[9px] uppercase tracking-wider font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <ImagePlus className="w-3 h-3" />
+                      Remplacer par fichier
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-2 justify-end pt-4 border-t border-white/10">
+                <button 
+                  type="button"
+                  onClick={() => setEditingBa(null)}
+                  className="px-4 py-2.5 text-xs text-white/70 hover:text-white transition-colors cursor-pointer"
+                >
+                  Annuler
+                </button>
+                <button 
+                  type="submit"
+                  disabled={baSaving}
+                  className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-xl text-xs uppercase tracking-wider transition-colors flex items-center gap-2 cursor-pointer disabled:opacity-50 shadow-md"
+                >
+                  {baSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                  <span>Enregistrer les modifications</span>
+                </button>
+              </div>
+            </form>
           </motion.div>
         </div>
       )}

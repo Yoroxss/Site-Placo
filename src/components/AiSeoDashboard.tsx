@@ -3,7 +3,7 @@ import { collection, doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { SeoConfig } from '../types';
 import { DEFAULT_SEO_CONFIG } from '../data/defaultSeo';
-import { Loader2, Plus, Trash2, Save } from 'lucide-react';
+import { Loader2, Plus, Trash2, Save, ImagePlus } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useAdmin } from '../contexts/AdminContext';
 
@@ -63,6 +63,32 @@ export default function AiSeoDashboard() {
     const newFaqs = [...(config.faqs || [])];
     newFaqs.splice(index, 1);
     setConfig({ ...config, faqs: newFaqs });
+  };
+
+  const resizeFavicon = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const base64 = event.target?.result as string;
+        if (file.type === 'image/svg+xml') {
+          resolve(base64);
+          return;
+        }
+        const img = new Image();
+        img.src = base64;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = 128;
+          canvas.height = 128;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, 128, 128);
+          resolve(canvas.toDataURL('image/png', 0.85));
+        };
+        img.onerror = () => reject(new Error("Format d'image non supporté"));
+      };
+      reader.onerror = () => reject(new Error("Erreur de lecture du fichier"));
+    });
   };
 
   if (loading) {
@@ -154,6 +180,51 @@ export default function AiSeoDashboard() {
                   <img src={config.ogImage} alt="OG Preview" className="w-full h-full object-cover" onError={(e) => (e.currentTarget.style.display = 'none')} />
                 </div>
               )}
+            </div>
+          </div>
+
+          <div className="space-y-1.5 border-t border-white/5 pt-4">
+            <label className="text-[10px] uppercase tracking-widest text-amber-500 font-bold">Logo d'onglet / Favicon du site</label>
+            <p className="text-[10px] text-white/40 mb-2">L'icône qui s'affiche dans l'onglet du navigateur et sur l'écran d'accueil mobile.</p>
+            <div className="flex gap-3 items-center">
+              <input
+                type="text"
+                value={config.faviconUrl || ''}
+                onChange={e => setConfig({ ...config, faviconUrl: e.target.value })}
+                className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3.5 py-2.5 outline-none text-white text-xs sm:text-sm focus:border-white/30 transition-colors font-mono"
+                placeholder="Ex: /icon.svg ou lien o2switch"
+              />
+              <div className="w-12 h-12 rounded-xl border border-white/10 overflow-hidden bg-[#141414] shrink-0 flex items-center justify-center p-1.5 shadow-inner">
+                <img src={config.faviconUrl || '/icon.svg'} alt="Favicon Preview" className="max-w-full max-h-full object-contain" onError={(e) => { e.currentTarget.src = '/icon.svg'; }} />
+              </div>
+            </div>
+            
+            <div className="pt-2">
+              <input 
+                type="file"
+                id="favicon-upload-file"
+                accept="image/svg+xml,image/png,image/jpeg"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    try {
+                      const base64 = await resizeFavicon(file);
+                      setConfig({ ...config, faviconUrl: base64 });
+                      setFeedback({ message: "Nouvelle icône chargée localement ! Cliquez sur Enregistrer pour l'appliquer.", type: 'success' });
+                    } catch (err: any) {
+                      setFeedback({ message: err.message || "Erreur de traitement", type: 'error' });
+                    }
+                  }
+                }}
+              />
+              <label 
+                htmlFor="favicon-upload-file"
+                className="py-2 px-3 bg-white/5 hover:bg-white/10 text-white/80 rounded-lg text-[9px] uppercase tracking-wider font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer border border-white/10 w-full sm:w-auto inline-flex active:scale-98 font-sans"
+              >
+                <ImagePlus className="w-3.5 h-3.5" />
+                Remplacer par fichier local
+              </label>
             </div>
           </div>
         </div>

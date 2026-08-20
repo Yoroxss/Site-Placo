@@ -136,7 +136,7 @@ export default function Carousel3D({ images, onImageClick }: Carousel3DProps) {
                 }}
               >
                 <img 
-                  src={image.url} 
+                  src={image.url || null} 
                   alt={image.alt} 
                   loading="lazy"
                   decoding="async"

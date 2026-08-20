@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Star, MessageSquarePlus, CheckCircle2, X, Send, UserCheck, Settings } from 'lucide-react';
+import { Star, MessageSquarePlus, CheckCircle2, X, Send, UserCheck, Settings, ChevronDown, ChevronUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAdmin } from '../contexts/AdminContext';
 import { DEFAULT_REVIEWS, ReviewItem } from '../data/defaultReviews';
@@ -11,6 +11,7 @@ export default function ReviewsSection() {
   const [reviews, setReviews] = useState<ReviewItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Form states
   const [author, setAuthor] = useState('');
@@ -170,52 +171,81 @@ export default function ReviewsSection() {
 
         {/* Reviews Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {displayReviews.map((rev, idx) => (
-            <div
-              key={rev.id || idx}
-              className="bg-white/5 border border-white/10 hover:border-amber-500/30 rounded-3xl p-6 md:p-8 flex flex-col justify-between backdrop-blur-md transition-all duration-300 group"
-            >
-              <div>
-                {/* Header card */}
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center space-x-1">
-                    {[...Array(rev.rating || 5)].map((_, i) => (
-                      <Star key={i} className="w-4 h-4 text-amber-400 fill-amber-400" />
-                    ))}
+          {displayReviews.map((rev, idx) => {
+            // Responsively hide cards beyond the limit when collapsed
+            let visibilityClass = "flex";
+            if (!isExpanded) {
+              if (idx === 2) {
+                visibilityClass = "hidden md:flex"; // Visible on PC, hidden on Mobile
+              } else if (idx > 2) {
+                visibilityClass = "hidden"; // Hidden everywhere
+              }
+            }
+
+            return (
+              <div
+                key={rev.id || idx}
+                className={`${visibilityClass} bg-white/5 border border-white/10 hover:border-amber-500/30 rounded-3xl p-6 md:p-8 flex-col justify-between backdrop-blur-md transition-all duration-300 group`}
+              >
+                <div>
+                  {/* Header card */}
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center space-x-1">
+                      {[...Array(rev.rating || 5)].map((_, i) => (
+                        <Star key={i} className="w-4 h-4 text-amber-400 fill-amber-400" />
+                      ))}
+                    </div>
+
+                    <span className="inline-flex items-center space-x-1 text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                      <UserCheck className="w-3 h-3 shrink-0" />
+                      <span>Vérifié</span>
+                    </span>
                   </div>
 
-                  <span className="inline-flex items-center space-x-1 text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                    <UserCheck className="w-3 h-3 shrink-0" />
-                    <span>Vérifié</span>
-                  </span>
+                  {/* Comment text */}
+                  <p className="text-white/80 text-xs md:text-sm leading-relaxed mb-6 font-light italic">
+                    "{rev.comment}"
+                  </p>
                 </div>
 
-                {/* Comment text */}
-                <p className="text-white/80 text-xs md:text-sm leading-relaxed mb-6 font-light italic">
-                  "{rev.comment}"
-                </p>
-              </div>
+                {/* Author Footer */}
+                <div className="pt-4 border-t border-white/10 flex items-center justify-between text-xs mt-auto w-full">
+                  <div>
+                    <h3 className="font-semibold text-white group-hover:text-amber-200 transition-colors">
+                      {rev.author}
+                    </h3>
+                    <span className="text-[10px] text-amber-400/80 uppercase font-mono tracking-wider">
+                      {rev.projectType} • {rev.city}
+                    </span>
+                  </div>
 
-              {/* Author Footer */}
-              <div className="pt-4 border-t border-white/10 flex items-center justify-between text-xs">
-                <div>
-                  <h3 className="font-semibold text-white group-hover:text-amber-200 transition-colors">
-                    {rev.author}
-                  </h3>
-                  <span className="text-[10px] text-amber-400/80 uppercase font-mono tracking-wider">
-                    {rev.projectType} • {rev.city}
-                  </span>
+                  {rev.date && (
+                    <span className="text-[10px] text-white/40 font-mono">
+                      {rev.date}
+                    </span>
+                  )}
                 </div>
-
-                {rev.date && (
-                  <span className="text-[10px] text-white/40 font-mono">
-                    {rev.date}
-                  </span>
-                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
+
+        {/* See More / See Less Toggle Button */}
+        {displayReviews.length > 2 && (
+          <div className="mt-10 flex justify-center">
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-amber-500/30 text-xs text-white uppercase tracking-wider font-semibold transition-all active:scale-95 cursor-pointer shadow-md"
+            >
+              <span>{isExpanded ? "Voir moins de témoignages" : `Voir tous les témoignages (${displayReviews.length})`}</span>
+              {isExpanded ? (
+                <ChevronUp className="w-4 h-4 text-amber-400" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-amber-400" />
+              )}
+            </button>
+          </div>
+        )}
 
       </div>
 

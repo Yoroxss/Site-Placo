@@ -66,6 +66,27 @@ export default function DynamicSeo() {
       updateMetaTag('property', 'twitter:card', 'summary_large_image');
     }
 
+    // Favicon & Web App Touch Icon
+    if (seo.faviconUrl) {
+      const favEl = document.querySelector("link[rel='icon']") as HTMLLinkElement;
+      if (favEl) {
+        favEl.href = seo.faviconUrl;
+        if (seo.faviconUrl.endsWith('.svg')) {
+          favEl.type = 'image/svg+xml';
+        } else if (seo.faviconUrl.endsWith('.png')) {
+          favEl.type = 'image/png';
+        } else if (seo.faviconUrl.endsWith('.ico')) {
+          favEl.type = 'image/x-icon';
+        } else {
+          favEl.removeAttribute('type');
+        }
+      }
+      const appleEl = document.querySelector("link[rel='apple-touch-icon']") as HTMLLinkElement;
+      if (appleEl) {
+        appleEl.href = seo.faviconUrl;
+      }
+    }
+
     // JSON-LD Schema (LocalBusiness + AEO + FAQ)
     const scriptId = 'ai-seo-schema';
     let scriptEl = document.getElementById(scriptId) as HTMLScriptElement;

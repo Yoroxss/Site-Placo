@@ -384,7 +384,7 @@ export default function Home() {
                 >
                   <img 
                     loading="lazy" 
-                    src={displayImages[selectedImage].url} 
+                    src={displayImages[selectedImage].url || null} 
                     alt={displayImages[selectedImage].alt || displayImages[selectedImage].title}
                     className="max-w-full max-h-[65vh] md:max-h-[75vh] object-contain rounded-2xl shadow-2xl border border-white/15 hover:opacity-95 transition-opacity"
                   />

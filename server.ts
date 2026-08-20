@@ -28,10 +28,27 @@ async function startServer() {
 
   app.post("/api/generate-image-metadata", async (req, res) => {
     try {
-      const { imageBase64, userDirectives } = req.body;
+      let { imageBase64, imageUrl, userDirectives } = req.body;
       
+      // If imageUrl is provided, let's fetch it on the server and convert it to base64!
+      if (imageUrl && !imageBase64) {
+        try {
+          const fetchRes = await fetch(imageUrl);
+          if (fetchRes.ok) {
+            const buffer = await fetchRes.arrayBuffer();
+            const contentType = fetchRes.headers.get("content-type") || "image/jpeg";
+            const base64String = Buffer.from(buffer).toString("base64");
+            imageBase64 = `data:${contentType};base64,${base64String}`;
+          } else {
+            console.warn("Could not fetch imageUrl for AI metadata:", imageUrl);
+          }
+        } catch (fetchErr) {
+          console.warn("Fetch imageUrl error for AI metadata:", fetchErr);
+        }
+      }
+
       if (!imageBase64) {
-        return res.status(400).json({ error: "Aucune image fournie." });
+        return res.status(400).json({ error: "Aucune image ou URL d'image valide fournie." });
       }
 
       // Generate a high-quality local metadata fallback

@@ -23,4 +23,5 @@ export interface SeoConfig {
   ogImage?: string;
   aiAgentInstructions: string;
   faqs: { question: string; answer: string }[];
+  faviconUrl?: string;
 }
