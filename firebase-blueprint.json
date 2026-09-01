@@ -126,12 +126,34 @@
         "createdAt": { "type": "string", "description": "Timestamp" }
       },
       "required": ["priority", "createdAt"]
+    },
+    "MileageTrip": {
+      "title": "Mileage Trip",
+      "description": "A business trip logged for mileage allowance (IK) claims.",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string", "maxLength": 10 },
+        "purpose": { "type": "string", "maxLength": 200 },
+        "departure": { "type": "string", "maxLength": 100 },
+        "arrival": { "type": "string", "maxLength": 100 },
+        "kilometers": { "type": "number" },
+        "vehiclePower": { "type": "string", "maxLength": 20 },
+        "vehicleType": { "type": "string", "maxLength": 20 },
+        "allowance": { "type": "number" },
+        "createdAt": { "type": "string", "description": "Timestamp" },
+        "adminCode": { "type": "string", "maxLength": 10 }
+      },
+      "required": ["date", "purpose", "departure", "arrival", "kilometers", "allowance", "createdAt"]
     }
   },
   "firestore": {
     "mail_classifications/{classificationId}": {
       "schema": "MailClassification",
       "description": "Collection of lightweight mail priority classifications."
+    },
+    "mileage_trips/{tripId}": {
+      "schema": "MileageTrip",
+      "description": "Collection of business mileage trips logged by the administrator."
     },
     "quotes/{quoteId}": {
       "schema": "QuoteRequest",

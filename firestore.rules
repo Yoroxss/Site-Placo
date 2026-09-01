@@ -88,5 +88,9 @@ service cloud.firestore {
       allow create, update: if incoming().adminCode == '0107';
       allow delete: if true; 
     }
+
+    match /mileage_trips/{tripId} {
+      allow read, write: if true;
+    }
   }
 }
