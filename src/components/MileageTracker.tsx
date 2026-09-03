@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Car, Calendar, Plus, Trash2, Download, Calculator, Settings, 
-  MapPin, Check, FileText, AlertCircle, Sparkles, ChevronRight, Info
+  MapPin, Check, FileText, AlertCircle, Sparkles, ChevronRight, Info,
+  Pencil, X, Save
 } from 'lucide-react';
 import { db } from '../firebase';
-import { collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, updateDoc } from 'firebase/firestore';
 import { jsPDF } from 'jspdf';
 
 // Official French barème kilométrique for passenger cars (current scale)
@@ -69,7 +70,20 @@ interface Trip {
   kilometers: number;
   vehiclePower: string;
   vehicleType: string;
+  vehicleId?: string;
+  vehicleName?: string;
+  vehiclePlate?: string;
   allowance: number;
+  createdAt: string;
+}
+
+interface Vehicle {
+  id: string;
+  name: string;
+  plate: string;
+  power: string;
+  type: string;
+  isDefault: boolean;
   createdAt: string;
 }
 
@@ -126,10 +140,22 @@ export default function MileageTracker() {
   const [isRoundTrip, setIsRoundTrip] = useState(true); // default to A/R since most trips are round trips
 
   // Vehicle configuration (saved in LocalStorage)
+  // Vehicle configuration (saved in LocalStorage)
   const [vehiclePower, setVehiclePower] = useState(() => localStorage.getItem('pb_vehicle_power') || '5 CV');
   const [vehicleType, setVehicleType] = useState(() => localStorage.getItem('pb_vehicle_type') || 'thermique');
   const [vehicleDesc, setVehicleDesc] = useState(() => localStorage.getItem('pb_vehicle_desc') || 'Véhicule Perso - SASU Parat & Bouey');
   
+  // New Saved Vehicles States
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string>('');
+  const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
+
+  // New Vehicle Creation states
+  const [vehicleFormName, setVehicleFormName] = useState('');
+  const [vehicleFormPlate, setVehicleFormPlate] = useState('');
+  const [vehicleFormPower, setVehicleFormPower] = useState('5 CV');
+  const [vehicleFormType, setVehicleFormType] = useState('thermique');
+
   // Show settings state
   const [showSettings, setShowSettings] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -149,12 +175,62 @@ export default function MileageTracker() {
     return new Date().toISOString().split('T')[0];
   });
 
-  // Save vehicle settings to local storage
+  // Save legacy vehicle settings to local storage
   useEffect(() => {
     localStorage.setItem('pb_vehicle_power', vehiclePower);
     localStorage.setItem('pb_vehicle_type', vehicleType);
     localStorage.setItem('pb_vehicle_desc', vehicleDesc);
   }, [vehiclePower, vehicleType, vehicleDesc]);
+
+  // Load and subscribe to vehicles in Firestore
+  useEffect(() => {
+    const q = query(collection(db, 'mileage_vehicles'), orderBy('createdAt', 'asc'));
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      const vehiclesData: Vehicle[] = [];
+      snapshot.forEach((doc) => {
+        vehiclesData.push({ id: doc.id, ...doc.data() } as Vehicle);
+      });
+
+      // Bootstrap a default vehicle if none exist in the DB to make onboarding seamless
+      if (vehiclesData.length === 0 && !loading) {
+        try {
+          await addDoc(collection(db, 'mileage_vehicles'), {
+            name: "Honda Civic Perso",
+            plate: "AA-123-BB",
+            power: "5 CV",
+            type: "thermique",
+            isDefault: true,
+            createdAt: new Date().toISOString()
+          });
+        } catch (e) {
+          console.error("Error bootstrapping default vehicle:", e);
+        }
+        return;
+      }
+
+      setVehicles(vehiclesData);
+
+      // Default selection setting
+      const defaultVehicle = vehiclesData.find(v => v.isDefault) || vehiclesData[0];
+      if (defaultVehicle && !selectedVehicleId) {
+        setSelectedVehicleId(defaultVehicle.id);
+      }
+    }, (error) => {
+      console.error("Error loading mileage vehicles:", error);
+    });
+
+    return () => unsubscribe();
+  }, [loading, selectedVehicleId]);
+
+  // Sync selected vehicle parameters into calculation and legacy state
+  useEffect(() => {
+    const activeVehicle = vehicles.find(v => v.id === selectedVehicleId);
+    if (activeVehicle) {
+      setVehiclePower(activeVehicle.power);
+      setVehicleType(activeVehicle.type);
+      setVehicleDesc(`${activeVehicle.name} (${activeVehicle.plate})`);
+    }
+  }, [selectedVehicleId, vehicles]);
 
   // Listen to trips in Firestore
   useEffect(() => {
@@ -173,6 +249,82 @@ export default function MileageTracker() {
 
     return () => unsubscribe();
   }, []);
+
+  // Add a new vehicle
+  const handleAddVehicle = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!vehicleFormName.trim() || !vehicleFormPlate.trim()) {
+      setFeedback({ message: "Veuillez remplir le nom et la plaque du véhicule.", type: 'error' });
+      return;
+    }
+
+    try {
+      const isFirst = vehicles.length === 0;
+      await addDoc(collection(db, 'mileage_vehicles'), {
+        name: vehicleFormName.trim(),
+        plate: vehicleFormPlate.trim().toUpperCase(),
+        power: vehicleFormPower,
+        type: vehicleFormType,
+        isDefault: isFirst,
+        createdAt: new Date().toISOString()
+      });
+
+      setVehicleFormName('');
+      setVehicleFormPlate('');
+      setFeedback({ message: "Véhicule enregistré avec succès !", type: 'success' });
+      setTimeout(() => setFeedback(null), 3000);
+    } catch (err) {
+      console.error("Error adding vehicle:", err);
+      setFeedback({ message: "Erreur lors de l'enregistrement.", type: 'error' });
+    }
+  };
+
+  // Set vehicle as default
+  const handleSetDefaultVehicle = async (vehicleId: string) => {
+    try {
+      for (const vehicle of vehicles) {
+        const docRef = doc(db, 'mileage_vehicles', vehicle.id);
+        await updateDoc(docRef, {
+          isDefault: vehicle.id === vehicleId
+        });
+      }
+      setSelectedVehicleId(vehicleId);
+      setFeedback({ message: "Véhicule par défaut mis à jour !", type: 'success' });
+      setTimeout(() => setFeedback(null), 2500);
+    } catch (err) {
+      console.error("Error setting default vehicle:", err);
+      setFeedback({ message: "Erreur lors du changement de défaut.", type: 'error' });
+    }
+  };
+
+  // Delete vehicle
+  const handleDeleteVehicle = async (vehicleId: string) => {
+    const toDelete = vehicles.find(v => v.id === vehicleId);
+    if (!toDelete) return;
+
+    if (vehicles.length <= 1) {
+      setFeedback({ message: "Vous devez garder au moins un véhicule.", type: 'error' });
+      return;
+    }
+
+    try {
+      await deleteDoc(doc(db, 'mileage_vehicles', vehicleId));
+      if (toDelete.isDefault) {
+        const remaining = vehicles.filter(v => v.id !== vehicleId);
+        if (remaining.length > 0) {
+          await updateDoc(doc(db, 'mileage_vehicles', remaining[0].id), {
+            isDefault: true
+          });
+          setSelectedVehicleId(remaining[0].id);
+        }
+      }
+      setFeedback({ message: "Véhicule supprimé.", type: 'success' });
+      setTimeout(() => setFeedback(null), 2500);
+    } catch (err) {
+      console.error("Error deleting vehicle:", err);
+      setFeedback({ message: "Erreur de suppression.", type: 'error' });
+    }
+  };
 
   // Helper to compute annual mileage & refund based on the official scale
   const getYearSummary = (year: string) => {
@@ -209,26 +361,26 @@ export default function MileageTracker() {
 
   // Live calculation of allowance for the single input trip
   // Based on current cumulative annual distance to be dynamic
-  const calculateSingleTripAllowance = (km: number) => {
+  const calculateSingleTripAllowance = (km: number, power: string = vehiclePower, type: string = vehicleType, customDate?: string) => {
     if (!km) return 0;
-    const currentYear = date.split('-')[0];
-    const yearTrips = trips.filter(t => t.date.startsWith(currentYear));
+    const targetYear = (customDate || date).split('-')[0];
+    // Exclude currently edited trip from cumulative distance calculation to avoid double counting
+    const yearTrips = trips.filter(t => t.date.startsWith(targetYear) && (!editingTrip || t.id !== editingTrip.id));
     const cumulativeKm = yearTrips.reduce((acc, t) => acc + t.kilometers, 0) + km;
 
-    const formula = BAREME_IK[vehiclePower] || BAREME_IK['5 CV'];
+    const formula = BAREME_IK[power] || BAREME_IK['5 CV'];
     let baseRate = 0;
 
     // We estimate using the tier the cumulative distance falls into
     if (cumulativeKm <= 5000) {
       baseRate = formula.under5k(km) / km;
     } else if (cumulativeKm <= 20000) {
-      // Approximate marginal rate for middle tier to give immediate visual value
       baseRate = formula.under20k(cumulativeKm) / cumulativeKm;
     } else {
       baseRate = formula.over20k(km) / km;
     }
 
-    const multiplier = vehicleType === 'electrique' ? 1.2 : 1;
+    const multiplier = type === 'electrique' ? 1.2 : 1;
     return Number((km * baseRate * multiplier).toFixed(2));
   };
 
@@ -247,7 +399,15 @@ export default function MileageTracker() {
     }
 
     const totalKm = isRoundTrip ? oneWayKm * 2 : oneWayKm;
-    const calculatedAllowance = calculateSingleTripAllowance(totalKm);
+    
+    // Find active vehicle details
+    const activeVehicle = vehicles.find(v => v.id === selectedVehicleId) || vehicles.find(v => v.isDefault) || vehicles[0];
+    const powerToUse = activeVehicle ? activeVehicle.power : vehiclePower;
+    const typeToUse = activeVehicle ? activeVehicle.type : vehicleType;
+    const vehicleNameToUse = activeVehicle ? activeVehicle.name : "Véhicule Perso";
+    const vehiclePlateToUse = activeVehicle ? activeVehicle.plate : "";
+
+    const calculatedAllowance = calculateSingleTripAllowance(totalKm, powerToUse, typeToUse);
 
     // Format purpose to include A/R if relevant so the accounting PDF is pristine and compliant
     let finalPurpose = purpose.trim();
@@ -262,8 +422,11 @@ export default function MileageTracker() {
         departure: departure.trim(),
         arrival: arrival.trim(),
         kilometers: totalKm,
-        vehiclePower,
-        vehicleType,
+        vehiclePower: powerToUse,
+        vehicleType: typeToUse,
+        vehicleId: activeVehicle ? activeVehicle.id : "",
+        vehicleName: vehicleNameToUse,
+        vehiclePlate: vehiclePlateToUse,
         allowance: calculatedAllowance,
         createdAt: new Date().toISOString(),
         adminCode: '0107' // aligned with app's security code
@@ -278,6 +441,116 @@ export default function MileageTracker() {
     } catch (err) {
       console.error("Error saving trip:", err);
       setFeedback({ message: "Erreur de sauvegarde. Vérifiez votre connexion.", type: 'error' });
+    }
+  };
+
+  // Start editing a trip
+  const handleStartEditTrip = (trip: Trip) => {
+    setEditingTrip(trip);
+    setDate(trip.date);
+    
+    // Parse A/R out of purpose
+    let cleanPurpose = trip.purpose;
+    let roundTrip = false;
+    if (cleanPurpose.endsWith(' (A/R)')) {
+      cleanPurpose = cleanPurpose.substring(0, cleanPurpose.length - 6);
+      roundTrip = true;
+    } else if (cleanPurpose.toUpperCase().includes('(A/R)')) {
+      cleanPurpose = cleanPurpose.replace(/\(A\/R\)/gi, '').trim();
+      roundTrip = true;
+    }
+    
+    setPurpose(cleanPurpose);
+    setDeparture(trip.departure);
+    setArrival(trip.arrival);
+    
+    // Set kilometers input (divide by 2 if it's round trip)
+    const rawKm = trip.kilometers;
+    setKilometers(roundTrip ? rawKm / 2 : rawKm);
+    setIsRoundTrip(roundTrip);
+    
+    // Select the vehicle used for this trip
+    if (trip.vehicleId) {
+      setSelectedVehicleId(trip.vehicleId);
+    } else {
+      const matched = vehicles.find(v => v.power === trip.vehiclePower && v.type === trip.vehicleType) || vehicles[0];
+      if (matched) {
+        setSelectedVehicleId(matched.id);
+      }
+    }
+  };
+
+  // Update Trip
+  const handleUpdateTrip = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTrip) return;
+
+    if (!purpose.trim() || !departure.trim() || !arrival.trim() || !kilometers) {
+      setFeedback({ message: "Veuillez remplir tous les champs du trajet.", type: 'error' });
+      return;
+    }
+
+    const oneWayKm = Number(kilometers);
+    if (isNaN(oneWayKm) || oneWayKm <= 0) {
+      setFeedback({ message: "La distance doit être supérieure à 0.", type: 'error' });
+      return;
+    }
+
+    const totalKm = isRoundTrip ? oneWayKm * 2 : oneWayKm;
+    
+    // Find selected vehicle details
+    const activeVehicle = vehicles.find(v => v.id === selectedVehicleId) || vehicles.find(v => v.isDefault) || vehicles[0];
+    const powerToUse = activeVehicle ? activeVehicle.power : vehiclePower;
+    const typeToUse = activeVehicle ? activeVehicle.type : vehicleType;
+    const vehicleNameToUse = activeVehicle ? activeVehicle.name : "Véhicule Perso";
+    const vehiclePlateToUse = activeVehicle ? activeVehicle.plate : "";
+
+    const calculatedAllowance = calculateSingleTripAllowance(totalKm, powerToUse, typeToUse, date);
+
+    // Format purpose
+    let finalPurpose = purpose.trim();
+    if (isRoundTrip && !finalPurpose.toUpperCase().includes('(A/R)') && !finalPurpose.toUpperCase().includes('ALLER-RETOUR')) {
+      finalPurpose = `${finalPurpose} (A/R)`;
+    }
+
+    try {
+      const docRef = doc(db, 'mileage_trips', editingTrip.id);
+      await updateDoc(docRef, {
+        date,
+        purpose: finalPurpose,
+        departure: departure.trim(),
+        arrival: arrival.trim(),
+        kilometers: totalKm,
+        vehiclePower: powerToUse,
+        vehicleType: typeToUse,
+        vehicleId: activeVehicle ? activeVehicle.id : "",
+        vehicleName: vehicleNameToUse,
+        vehiclePlate: vehiclePlateToUse,
+        allowance: calculatedAllowance
+      });
+
+      // Reset editing state and form
+      setEditingTrip(null);
+      setPurpose('');
+      setArrival('');
+      setKilometers('');
+      setFeedback({ message: "Trajet mis à jour avec succès !", type: 'success' });
+      setTimeout(() => setFeedback(null), 3000);
+    } catch (err) {
+      console.error("Error updating trip:", err);
+      setFeedback({ message: "Erreur de sauvegarde lors de la mise à jour.", type: 'error' });
+    }
+  };
+
+  // Cancel edit mode
+  const handleCancelEdit = () => {
+    setEditingTrip(null);
+    setPurpose('');
+    setArrival('');
+    setKilometers('');
+    const defaultVehicle = vehicles.find(v => v.isDefault) || vehicles[0];
+    if (defaultVehicle) {
+      setSelectedVehicleId(defaultVehicle.id);
     }
   };
 
@@ -382,6 +655,13 @@ export default function MileageTracker() {
     docPdf.line(14, 36, 196, 36);
 
     // Vehicle Summary Card in PDF
+    const firstTripWithVehicle = periodTrips.find(t => t.vehicleName);
+    const pdfVehicleDesc = firstTripWithVehicle 
+      ? `${firstTripWithVehicle.vehicleName} ${firstTripWithVehicle.vehiclePlate ? `(${firstTripWithVehicle.vehiclePlate})` : ''}`
+      : vehicleDesc;
+    const pdfVehiclePower = firstTripWithVehicle ? firstTripWithVehicle.vehiclePower : vehiclePower;
+    const pdfVehicleType = firstTripWithVehicle ? firstTripWithVehicle.vehicleType : vehicleType;
+
     docPdf.setFillColor(248, 248, 246);
     docPdf.rect(14, 42, 182, 24, "F");
     docPdf.setFont("helvetica", "bold");
@@ -389,17 +669,17 @@ export default function MileageTracker() {
     docPdf.setTextColor(50, 50, 50);
     docPdf.text("Véhicule utilisé :", 18, 48);
     docPdf.setFont("helvetica", "normal");
-    docPdf.text(`${vehicleDesc}`, 50, 48);
+    docPdf.text(`${pdfVehicleDesc}`, 50, 48);
     
     docPdf.setFont("helvetica", "bold");
     docPdf.text("Puissance Fiscale :", 18, 54);
     docPdf.setFont("helvetica", "normal");
-    docPdf.text(`${vehiclePower}`, 50, 54);
+    docPdf.text(`${pdfVehiclePower}`, 50, 54);
     
     docPdf.setFont("helvetica", "bold");
     docPdf.text("Motorisation :", 18, 60);
     docPdf.setFont("helvetica", "normal");
-    docPdf.text(`${vehicleType === 'electrique' ? 'Électrique (+20% bonus)' : 'Thermique / Hybride'}`, 50, 60);
+    docPdf.text(`${pdfVehicleType === 'electrique' ? 'Électrique (+20% bonus)' : 'Thermique / Hybride'}`, 50, 60);
 
     // Table Header
     const tableTop = 75;
@@ -588,54 +868,153 @@ export default function MileageTracker() {
         </div>
       </div>
 
-      {/* 1. VEHICLE SETTINGS EXPANDER */}
+      {/* 1. VEHICLE SETTINGS EXPANDER (VEHICLE REGISTRY) */}
       {showSettings && (
-        <div className="p-4 sm:p-6 bg-amber-500/5 border-b border-white/10 space-y-4 animate-fade-in">
-          <h3 className="text-xs uppercase tracking-widest text-amber-400 font-bold flex items-center gap-1.5">
-            <Sparkles className="w-4 h-4" />
-            Paramètres fiscaux du véhicule
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-[10px] uppercase tracking-widest text-white/60 mb-1.5 font-mono">Puissance Fiscale (CV)</label>
-              <select
-                value={vehiclePower}
-                onChange={(e) => setVehiclePower(e.target.value)}
-                className="w-full bg-black/60 border border-white/15 rounded-xl px-3 py-2.5 text-xs text-white outline-none focus:border-amber-400 transition-all"
-              >
-                <option value="3 CV">3 CV</option>
-                <option value="4 CV">4 CV</option>
-                <option value="5 CV">5 CV</option>
-                <option value="6 CV">6 CV</option>
-                <option value="7 CV et +">7 CV et plus</option>
-              </select>
+        <div className="p-4 sm:p-6 bg-[#161616] border-b border-white/10 space-y-6 animate-fade-in">
+          <div className="flex flex-col md:flex-row gap-6">
+            
+            {/* Left Box: Registered Vehicles List */}
+            <div className="flex-1 space-y-4">
+              <h3 className="text-xs uppercase tracking-widest text-amber-400 font-bold flex items-center gap-1.5">
+                <Car className="w-4 h-4" />
+                Vos Véhicules Enregistrés ({vehicles.length})
+              </h3>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {vehicles.map((v) => (
+                  <div 
+                    key={v.id} 
+                    className={`p-3.5 rounded-xl border transition-all flex flex-col justify-between gap-3 ${
+                      v.isDefault 
+                        ? 'bg-amber-500/5 border-amber-500/30 shadow-md shadow-amber-500/5' 
+                        : 'bg-white/5 border-white/10 hover:border-white/20'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <div className={`p-1.5 rounded-lg text-xs ${
+                          v.isDefault ? 'bg-amber-500/20 text-amber-300' : 'bg-white/10 text-white/60'
+                        }`}>
+                          <Car className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-white text-xs">{v.name}</h4>
+                          <p className="text-[10px] text-white/40 uppercase font-mono tracking-wider">{v.plate || 'Non renseigné'}</p>
+                        </div>
+                      </div>
+                      
+                      {v.isDefault && (
+                        <span className="px-1.5 py-0.5 rounded bg-amber-500 text-black font-semibold text-[8px] uppercase tracking-wider font-mono">
+                          Défaut
+                        </span>
+                      )}
+                    </div>
+                    
+                    <div className="flex items-center justify-between gap-2 border-t border-white/5 pt-2 text-[10px] text-white/60">
+                      <div>
+                        <span className="font-semibold font-mono bg-white/5 px-1.5 py-0.5 rounded text-white mr-1.5">{v.power}</span>
+                        <span className="capitalize">{v.type === 'electrique' ? 'Élec (+20%)' : 'Thermique'}</span>
+                      </div>
+                      
+                      <div className="flex items-center gap-1.5">
+                        {!v.isDefault && (
+                          <button
+                            onClick={() => handleSetDefaultVehicle(v.id)}
+                            className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-white/80 hover:text-white transition-all text-[9px] font-semibold cursor-pointer"
+                          >
+                            Par défaut
+                          </button>
+                        )}
+                        {vehicles.length > 1 && (
+                          <button
+                            onClick={() => handleDeleteVehicle(v.id)}
+                            className="p-1 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-all cursor-pointer"
+                            title="Supprimer le véhicule"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            <div>
-              <label className="block text-[10px] uppercase tracking-widest text-white/60 mb-1.5 font-mono">Motorisation</label>
-              <select
-                value={vehicleType}
-                onChange={(e) => setVehicleType(e.target.value)}
-                className="w-full bg-black/60 border border-white/15 rounded-xl px-3 py-2.5 text-xs text-white outline-none focus:border-amber-400 transition-all"
-              >
-                <option value="thermique">Thermique / Hybride</option>
-                <option value="electrique">Électrique (+20% bonus Impôts)</option>
-              </select>
+            {/* Right Box: Register New Vehicle Form */}
+            <div className="w-full md:w-80 bg-white/5 border border-white/10 rounded-2xl p-4 space-y-3 shrink-0">
+              <h4 className="text-[10px] uppercase tracking-wider text-white/70 font-bold flex items-center gap-1.5">
+                <Plus className="w-3.5 h-3.5 text-amber-400" />
+                Enregistrer un nouveau véhicule
+              </h4>
+              
+              <form onSubmit={handleAddVehicle} className="space-y-3 text-xs">
+                <div>
+                  <label className="block text-[9px] uppercase tracking-wider text-white/40 mb-1 font-mono">Modèle / Nom</label>
+                  <input
+                    type="text"
+                    value={vehicleFormName}
+                    onChange={(e) => setVehicleFormName(e.target.value)}
+                    placeholder="Ex: Honda Civic, Peugeot 208"
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-amber-400 transition-all"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-[9px] uppercase tracking-wider text-white/40 mb-1 font-mono">Plaque d'immatriculation</label>
+                  <input
+                    type="text"
+                    value={vehicleFormPlate}
+                    onChange={(e) => setVehicleFormPlate(e.target.value)}
+                    placeholder="Ex: AB-123-CD"
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-amber-400 transition-all font-mono uppercase"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-wider text-white/40 mb-1 font-mono">Puissance (CV)</label>
+                    <select
+                      value={vehicleFormPower}
+                      onChange={(e) => setVehicleFormPower(e.target.value)}
+                      className="w-full bg-black/40 border border-white/10 rounded-xl px-2 py-2 text-xs text-white outline-none focus:border-amber-400 transition-all"
+                    >
+                      <option value="3 CV">3 CV</option>
+                      <option value="4 CV">4 CV</option>
+                      <option value="5 CV">5 CV</option>
+                      <option value="6 CV">6 CV</option>
+                      <option value="7 CV et +">7 CV et +</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-wider text-white/40 mb-1 font-mono">Motorisation</label>
+                    <select
+                      value={vehicleFormType}
+                      onChange={(e) => setVehicleFormType(e.target.value)}
+                      className="w-full bg-black/40 border border-white/10 rounded-xl px-2 py-2 text-xs text-white outline-none focus:border-amber-400 transition-all"
+                    >
+                      <option value="thermique">Thermique</option>
+                      <option value="electrique">Électrique</option>
+                    </select>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full bg-amber-500 hover:bg-amber-400 text-black font-semibold rounded-xl py-2 text-[11px] uppercase tracking-wider transition-all flex items-center justify-center gap-1 cursor-pointer font-bold mt-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Enregistrer le véhicule</span>
+                </button>
+              </form>
             </div>
 
-            <div>
-              <label className="block text-[10px] uppercase tracking-widest text-white/60 mb-1.5 font-mono">Description du Véhicule / Plaque</label>
-              <input
-                type="text"
-                value={vehicleDesc}
-                onChange={(e) => setVehicleDesc(e.target.value)}
-                placeholder="Ex: Peugeot 208 - AB-123-CD"
-                className="w-full bg-black/60 border border-white/15 rounded-xl px-3 py-2.5 text-xs text-white outline-none focus:border-amber-400 transition-all"
-              />
-            </div>
           </div>
+          
           <div className="p-3 bg-white/5 rounded-xl text-[11px] text-white/50 leading-relaxed">
-            💡 <strong>Règle fiscale SASU :</strong> Les remboursements forfaitaires de frais kilométriques sont totalement exonérés de cotisations sociales et d'impôt sur le revenu pour le gérant. Le barème progressif ci-dessus est automatiquement appliqué selon la puissance du véhicule et le cumul de kilomètres annuel.
+            💡 <strong>Règle fiscale SASU :</strong> Les remboursements forfaitaires de frais kilométriques sont totalement exonérés de cotisations sociales et d'impôt sur le revenu pour le gérant. Le barème progressif est automatiquement géré et appliqué selon la puissance du véhicule et le cumul de kilomètres annuel de la flotte de votre entreprise.
           </div>
         </div>
       )}
@@ -645,9 +1024,20 @@ export default function MileageTracker() {
         
         {/* 2. RAPID ENTRY TRIP FORM (Left side) */}
         <div className="lg:col-span-2 p-4 sm:p-6 border-r border-white/10 space-y-4">
-          <h3 className="text-xs uppercase tracking-widest text-white/70 font-mono font-bold flex items-center gap-1.5">
-            <Plus className="w-4 h-4 text-amber-400" />
-            Saisie rapide d'un trajet
+          <h3 className={`text-xs uppercase tracking-widest font-mono font-bold flex items-center gap-1.5 ${
+            editingTrip ? 'text-amber-400' : 'text-white/70'
+          }`}>
+            {editingTrip ? (
+              <>
+                <Pencil className="w-4 h-4 text-amber-400 animate-pulse" />
+                <span>Modification d'un trajet</span>
+              </>
+            ) : (
+              <>
+                <Plus className="w-4 h-4 text-amber-400" />
+                <span>Saisie rapide d'un trajet</span>
+              </>
+            )}
           </h3>
 
           {feedback && (
@@ -658,7 +1048,7 @@ export default function MileageTracker() {
             </div>
           )}
 
-          <form onSubmit={handleAddTrip} className="space-y-4">
+          <form onSubmit={editingTrip ? handleUpdateTrip : handleAddTrip} className="space-y-4">
             {/* Date Picker */}
             <div className="grid grid-cols-3 gap-2">
               <div className="col-span-2">
@@ -680,6 +1070,22 @@ export default function MileageTracker() {
                   Aujourd'hui
                 </button>
               </div>
+            </div>
+
+            {/* Vehicle Selection Dropdown */}
+            <div>
+              <label className="block text-[9px] uppercase tracking-wider text-white/40 mb-1 font-mono">Véhicule Utilisé</label>
+              <select
+                value={selectedVehicleId}
+                onChange={(e) => setSelectedVehicleId(e.target.value)}
+                className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-amber-400 transition-all font-semibold font-sans"
+              >
+                {vehicles.map((v) => (
+                  <option key={v.id} value={v.id} className="text-black bg-white">
+                    {v.name} ({v.plate}) — {v.power} {v.type === 'electrique' ? '⚡' : '⛽'} {v.isDefault ? '(Défaut)' : ''}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Motif & Presets */}
@@ -809,7 +1215,7 @@ export default function MileageTracker() {
                   <span className="absolute right-3 top-2 text-[10px] text-white/40 font-mono">km</span>
                 </div>
                 {kilometers !== '' && (
-                  <span className="block mt-1 text-[9px] text-amber-300 font-medium">
+                  <span className="block mt-1 text-[9px] text-amber-300 font-medium font-mono">
                     Total : {isRoundTrip ? Number(kilometers) * 2 : kilometers} km {isRoundTrip ? '(A/R)' : '(Aller simple)'}
                   </span>
                 )}
@@ -818,19 +1224,45 @@ export default function MileageTracker() {
               <div className="p-2.5 bg-amber-500/5 rounded-xl border border-amber-500/10 text-center min-h-[52px] flex flex-col justify-center">
                 <span className="block text-[8px] uppercase text-white/40 tracking-wider">Remboursement</span>
                 <span className="text-xs font-bold text-amber-400 font-mono font-semibold">
-                  {kilometers ? `${calculateSingleTripAllowance(Number(kilometers) * (isRoundTrip ? 2 : 1))} €` : '--'}
+                  {kilometers ? (() => {
+                    const activeVehicle = vehicles.find(v => v.id === selectedVehicleId) || vehicles.find(v => v.isDefault) || vehicles[0];
+                    const powerToUse = activeVehicle ? activeVehicle.power : vehiclePower;
+                    const typeToUse = activeVehicle ? activeVehicle.type : vehicleType;
+                    return `${calculateSingleTripAllowance(Number(kilometers) * (isRoundTrip ? 2 : 1), powerToUse, typeToUse, date)} €`;
+                  })() : '--'}
                 </span>
               </div>
             </div>
 
-            {/* Submit Button */}
-            <button
-              type="submit"
-              className="w-full bg-amber-500 text-black font-semibold rounded-xl py-3 text-xs uppercase tracking-wider hover:bg-amber-400 transition-all active:scale-98 shadow-md shadow-amber-500/10 flex items-center justify-center gap-1.5 cursor-pointer mt-4"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Enregistrer le trajet</span>
-            </button>
+            {/* Submit & Cancel Buttons */}
+            <div className="flex gap-2 mt-4">
+              {editingTrip && (
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  className="flex-1 py-3 bg-red-500/15 hover:bg-red-500/20 text-red-400 font-semibold rounded-xl text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                  <span>Annuler</span>
+                </button>
+              )}
+              <button
+                type="submit"
+                className="w-full bg-amber-500 text-black font-semibold rounded-xl py-3 text-xs uppercase tracking-wider hover:bg-amber-400 transition-all active:scale-98 shadow-md shadow-amber-500/10 flex items-center justify-center gap-1.5 cursor-pointer font-bold"
+              >
+                {editingTrip ? (
+                  <>
+                    <Save className="w-4 h-4 text-black" />
+                    <span>Enregistrer</span>
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4 text-black" />
+                    <span>Enregistrer le trajet</span>
+                  </>
+                )}
+              </button>
+            </div>
           </form>
         </div>
 
@@ -973,7 +1405,11 @@ export default function MileageTracker() {
                   return (
                     <div 
                       key={trip.id}
-                      className="p-3 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 transition-all flex items-center justify-between gap-3 text-xs"
+                      className={`p-3 rounded-xl border transition-all flex items-center justify-between gap-3 text-xs ${
+                        editingTrip?.id === trip.id 
+                          ? 'bg-amber-500/10 border-amber-500/30' 
+                          : 'bg-white/5 border-white/5 hover:border-white/10'
+                      }`}
                     >
                       <div className="min-w-0 flex items-center gap-3">
                         {/* Compact Date Box */}
@@ -990,40 +1426,62 @@ export default function MileageTracker() {
                             <ChevronRight className="w-2 h-2 shrink-0" />
                             <span>{trip.arrival}</span>
                           </p>
+                          <div className="text-[9px] text-amber-400/80 font-medium flex items-center gap-1 mt-1 font-sans">
+                            <span className="px-1 py-0.5 rounded bg-amber-500/10 text-amber-300 font-semibold font-mono tracking-wide text-[8px] shrink-0">
+                              {trip.vehiclePower}
+                            </span>
+                            <span className="truncate">
+                              {trip.vehicleName || 'Véhicule Perso'} {trip.vehiclePlate ? `(${trip.vehiclePlate})` : ''}
+                            </span>
+                          </div>
                         </div>
                       </div>
 
-                      {/* Right Section: Km / Value / Delete */}
-                      <div className="flex items-center gap-3 shrink-0">
+                      {/* Right Section: Km / Value / Edit / Delete */}
+                      <div className="flex items-center gap-2.5 shrink-0">
                         <div className="text-right">
                           <span className="block font-bold text-white font-mono text-[11px]">{trip.kilometers} km</span>
                           <span className="block text-[10px] text-amber-400 font-mono font-semibold">+{trip.allowance?.toFixed(2) || '0.00'} €</span>
                         </div>
+                        
                         {deleteConfirmId === trip.id ? (
                           <div className="flex items-center gap-1 shrink-0 animate-fade-in">
                             <button
                               onClick={() => handleDeleteTrip(trip.id)}
-                              className="px-2 py-1 rounded bg-red-600 hover:bg-red-500 text-white font-bold text-[9px] transition-all cursor-pointer"
+                              className="px-2 py-1 rounded bg-red-600 hover:bg-red-500 text-white font-bold text-[9px] transition-all cursor-pointer font-bold"
                               title="Confirmer la suppression"
                             >
                               OUI
                             </button>
                             <button
                               onClick={() => setDeleteConfirmId(null)}
-                              className="px-2 py-1 rounded bg-white/10 hover:bg-white/20 text-white/70 font-semibold text-[9px] transition-all cursor-pointer"
+                              className="px-2 py-1 rounded bg-white/10 hover:bg-white/20 text-white/70 font-semibold text-[9px] transition-all cursor-pointer font-semibold"
                               title="Annuler"
                             >
                               NON
                             </button>
                           </div>
                         ) : (
-                          <button
-                            onClick={() => setDeleteConfirmId(trip.id)}
-                            className="p-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/25 transition-all cursor-pointer shrink-0"
-                            title="Supprimer"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => handleStartEditTrip(trip)}
+                              className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
+                                editingTrip?.id === trip.id 
+                                  ? 'bg-amber-500 text-black border-amber-500' 
+                                  : 'bg-white/5 border-white/5 text-white/60 hover:text-white hover:bg-white/10'
+                              }`}
+                              title="Modifier"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => setDeleteConfirmId(trip.id)}
+                              className="p-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/25 transition-all cursor-pointer"
+                              title="Supprimer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>

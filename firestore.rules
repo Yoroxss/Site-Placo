@@ -92,5 +92,9 @@ service cloud.firestore {
     match /mileage_trips/{tripId} {
       allow read, write: if true;
     }
+
+    match /mileage_vehicles/{vehicleId} {
+      allow read, write: if true;
+    }
   }
 }

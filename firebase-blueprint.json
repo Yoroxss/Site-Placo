@@ -139,14 +139,35 @@
         "kilometers": { "type": "number" },
         "vehiclePower": { "type": "string", "maxLength": 20 },
         "vehicleType": { "type": "string", "maxLength": 20 },
+        "vehicleId": { "type": "string", "maxLength": 50 },
+        "vehicleName": { "type": "string", "maxLength": 100 },
+        "vehiclePlate": { "type": "string", "maxLength": 20 },
         "allowance": { "type": "number" },
         "createdAt": { "type": "string", "description": "Timestamp" },
         "adminCode": { "type": "string", "maxLength": 10 }
       },
       "required": ["date", "purpose", "departure", "arrival", "kilometers", "allowance", "createdAt"]
+    },
+    "MileageVehicle": {
+      "title": "Mileage Vehicle",
+      "description": "A vehicle stored in the mileage tracker system.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "maxLength": 100 },
+        "plate": { "type": "string", "maxLength": 20 },
+        "power": { "type": "string", "maxLength": 20 },
+        "type": { "type": "string", "maxLength": 20 },
+        "isDefault": { "type": "boolean" },
+        "createdAt": { "type": "string", "description": "Timestamp" }
+      },
+      "required": ["name", "power", "type", "isDefault", "createdAt"]
     }
   },
   "firestore": {
+    "mileage_vehicles/{vehicleId}": {
+      "schema": "MileageVehicle",
+      "description": "Collection of saved business and personal vehicles."
+    },
     "mail_classifications/{classificationId}": {
       "schema": "MailClassification",
       "description": "Collection of lightweight mail priority classifications."
