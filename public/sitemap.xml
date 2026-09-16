@@ -1,63 +1,124 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <!-- Pages Principales -->
   <url>
-    <loc>https://plaquiste-arcachon.fr/</loc>
+    <loc>https://www.plaquiste-arcachon.fr/</loc>
+    <lastmod>2026-09-16</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://plaquiste-arcachon.fr/blog</loc>
+    <loc>https://www.plaquiste-arcachon.fr/blog</loc>
+    <lastmod>2026-09-16</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
+
+  <!-- Articles de Blog & Guides Techniques -->
   <url>
-    <loc>https://plaquiste-arcachon.fr/artisan-plaquiste/le-teich</loc>
+    <loc>https://www.plaquiste-arcachon.fr/blog/creation-bibliotheque-meuble-tv-sur-mesure-placo-bassin-arcachon</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://www.plaquiste-arcachon.fr/blog/renovation-plafond-ancien-lattis-briquette-fissures-bassin-arcachon</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://www.plaquiste-arcachon.fr/blog/que-faire-apres-degat-des-eaux-plafond-platre-bassin-arcachon</loc>
+    <lastmod>2026-09-16</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://plaquiste-arcachon.fr/artisan-plaquiste/gujan-mestras</loc>
+    <loc>https://www.plaquiste-arcachon.fr/blog/isolation-phonique-thermique-maison-bois-echoppe-bassin-arcachon</loc>
+    <lastmod>2026-09-16</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://plaquiste-arcachon.fr/artisan-plaquiste/biganos</loc>
+    <loc>https://www.plaquiste-arcachon.fr/blog/pourquoi-choisir-platrier-jointeur-plutot-que-peintre-pour-les-bandes</loc>
+    <lastmod>2026-09-16</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://plaquiste-arcachon.fr/artisan-plaquiste/audenge</loc>
+    <loc>https://www.plaquiste-arcachon.fr/blog/choisir-plaque-de-platre-cloisons-bassin-arcachon-placo-hydro-phonique</loc>
+    <lastmod>2026-09-16</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://plaquiste-arcachon.fr/artisan-plaquiste/la-teste-de-buch</loc>
+    <loc>https://www.plaquiste-arcachon.fr/blog/ratissage-lissage-enduit-preparation-plafond-peinture-bassin-arcachon</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Pages Villes Cibles Bassin d'Arcachon -->
+  <url>
+    <loc>https://www.plaquiste-arcachon.fr/artisan-plaquiste/le-teich</loc>
+    <lastmod>2026-09-16</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://plaquiste-arcachon.fr/artisan-plaquiste/mios</loc>
+    <loc>https://www.plaquiste-arcachon.fr/artisan-plaquiste/gujan-mestras</loc>
+    <lastmod>2026-09-16</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://plaquiste-arcachon.fr/artisan-plaquiste/arcachon</loc>
+    <loc>https://www.plaquiste-arcachon.fr/artisan-plaquiste/biganos</loc>
+    <lastmod>2026-09-16</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://plaquiste-arcachon.fr/artisan-plaquiste/lanton</loc>
+    <loc>https://www.plaquiste-arcachon.fr/artisan-plaquiste/audenge</loc>
+    <lastmod>2026-09-16</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://plaquiste-arcachon.fr/artisan-plaquiste/salles</loc>
+    <loc>https://www.plaquiste-arcachon.fr/artisan-plaquiste/la-teste-de-buch</loc>
+    <lastmod>2026-09-16</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://plaquiste-arcachon.fr/mentions-legales</loc>
+    <loc>https://www.plaquiste-arcachon.fr/artisan-plaquiste/mios</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.plaquiste-arcachon.fr/artisan-plaquiste/arcachon</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.plaquiste-arcachon.fr/artisan-plaquiste/lanton</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.plaquiste-arcachon.fr/artisan-plaquiste/salles</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Pages Légales -->
+  <url>
+    <loc>https://www.plaquiste-arcachon.fr/mentions-legales</loc>
+    <lastmod>2026-09-16</lastmod>
     <changefreq>yearly</changefreq>
-    <priority>0.1</priority>
+    <priority>0.2</priority>
   </url>
 </urlset>

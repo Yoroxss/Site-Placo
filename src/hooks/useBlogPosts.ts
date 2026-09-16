@@ -5,7 +5,16 @@ export function useBlogPosts() {
   const [posts, setPosts] = useState<BlogPost[]>(() => {
     try {
       const cached = localStorage.getItem('pb_blog_cache');
-      return cached ? JSON.parse(cached) : DEFAULT_BLOG_POSTS;
+      if (cached) {
+        const parsed = JSON.parse(cached) as BlogPost[];
+        const cachedIds = new Set(parsed.map(p => p.id));
+        const cachedSlugs = new Set(parsed.map(p => p.slug));
+        const missingDefaults = DEFAULT_BLOG_POSTS.filter(
+          def => !cachedIds.has(def.id) && !cachedSlugs.has(def.slug)
+        );
+        return [...parsed, ...missingDefaults];
+      }
+      return DEFAULT_BLOG_POSTS;
     } catch { return DEFAULT_BLOG_POSTS; }
   });
   const [loading, setLoading] = useState(false);

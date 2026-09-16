@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import FloatingMobileCta from '../components/FloatingMobileCta';
@@ -128,12 +129,59 @@ export default function BlogPostPage() {
     }
   };
 
+  const breadcrumbsSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Accueil",
+        "item": "https://www.plaquiste-arcachon.fr"
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "Conseils & Blog",
+        "item": "https://www.plaquiste-arcachon.fr/blog"
+      },
+      {
+        "@type": "ListItem",
+        "position": 3,
+        "name": post.title,
+        "item": `https://www.plaquiste-arcachon.fr/blog/${post.slug}`
+      }
+    ]
+  };
+
+  const canonicalUrl = `https://www.plaquiste-arcachon.fr/blog/${post.slug}`;
+  const resolvedOgImage = post.imageUrl.startsWith('http') 
+    ? post.imageUrl 
+    : `https://www.plaquiste-arcachon.fr${post.imageUrl}`;
+
   return (
     <>
+      <Helmet>
+        <title>{`${post.title} | Parat & Bouey`}</title>
+        <meta name="description" content={post.excerpt} />
+        <link rel="canonical" href={canonicalUrl} />
+        <meta property="og:title" content={`${post.title} | Parat & Bouey`} />
+        <meta property="og:description" content={post.excerpt} />
+        <meta property="og:url" content={canonicalUrl} />
+        <meta property="og:type" content="article" />
+        <meta property="og:image" content={resolvedOgImage} />
+        <meta property="og:site_name" content="Parat & Bouey" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={post.title} />
+        <meta name="twitter:description" content={post.excerpt} />
+        <meta name="twitter:image" content={resolvedOgImage} />
+      </Helmet>
+
       <Header />
 
-      {/* Schema.org Injection */}
+      {/* Schema.org Injection (Article + BreadcrumbList) */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbsSchema) }} />
 
       <main className="min-h-screen bg-[#0a0a0a] text-white pt-32 pb-24 px-6 md:px-12 relative overflow-hidden">
         {/* Radial Glow */}

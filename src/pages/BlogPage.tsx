@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import FloatingMobileCta from '../components/FloatingMobileCta';
@@ -11,7 +12,15 @@ export default function BlogPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('Tous');
 
-  const categories = ['Tous', 'Rénovation & Conseils', 'Isolation & Acoustique', 'Geste Artisanal'];
+  const categories = [
+    'Tous', 
+    'Rénovation & Conseils', 
+    'Aménagement Sur-Mesure', 
+    'Isolation & Acoustique', 
+    'Pose de Placo & Cloisons', 
+    'Geste Artisanal', 
+    'Ratissage & Finition Peinture'
+  ];
 
   const filteredPosts = posts.filter((post) => {
     const matchesSearch = post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -22,6 +31,22 @@ export default function BlogPage() {
 
   return (
     <>
+      <Helmet>
+        <title>Conseils Techniques & Guides Plâtrerie Bassin d'Arcachon | Parat & Bouey</title>
+        <meta 
+          name="description" 
+          content="Découvrez les guides pratiques et astuces de votre artisan plaquiste-jointeur sur le Bassin d'Arcachon : bibliothèques sur-mesure, réparation dégât des eaux, plafonds anciens en lattis, isolation phonique." 
+        />
+        <link rel="canonical" href="https://www.plaquiste-arcachon.fr/blog" />
+        <meta property="og:title" content="Conseils Techniques & Guides Plâtrerie Bassin d'Arcachon | Parat & Bouey" />
+        <meta property="og:description" content="Guides pratiques et astuces de votre artisan plaquiste-jointeur sur le Bassin d'Arcachon : bibliothèques sur-mesure, réparation dégât des eaux, plafonds en lattis, isolation." />
+        <meta property="og:url" content="https://www.plaquiste-arcachon.fr/blog" />
+        <meta property="og:type" content="blog" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Conseils Techniques & Guides Plâtrerie Bassin d'Arcachon | Parat & Bouey" />
+        <meta name="twitter:description" content="Guides pratiques et astuces de votre artisan plaquiste-jointeur sur le Bassin d'Arcachon." />
+      </Helmet>
+
       <Header />
 
       <main className="min-h-screen bg-[#0a0a0a] text-white pt-32 pb-24 px-6 md:px-12 relative overflow-hidden">

@@ -96,5 +96,11 @@ service cloud.firestore {
     match /mileage_vehicles/{vehicleId} {
       allow read, write: if true;
     }
+
+    match /appointments/{appId} {
+      allow read: if true;
+      allow create, update: if incoming().adminCode == '0107';
+      allow delete: if true;
+    }
   }
 }

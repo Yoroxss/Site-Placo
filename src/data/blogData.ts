@@ -15,6 +15,50 @@ export interface BlogPost {
 
 export const DEFAULT_BLOG_POSTS: BlogPost[] = [
   {
+    id: 'post-bibliotheque-meuble-placo-sur-mesure',
+    slug: 'creation-bibliotheque-meuble-tv-sur-mesure-placo-bassin-arcachon',
+    title: 'Création de bibliothèque et meuble TV sur-mesure en placo : agencer son salon sur le Bassin d\'Arcachon',
+    category: 'Aménagement Sur-Mesure',
+    excerpt: 'Niches décoratives, profilés LED encastrés, passage invisible des câbles et renforts de charge : comment concevoir un meuble intégré sur-mesure en plaque de plâtre.',
+    readingTime: '6 min de lecture',
+    date: 'Septembre 2026',
+    author: 'Yoni Parat • Artisan Plaquiste Bassin d\'Arcachon',
+    imageUrl: DEFAULT_GALLERY_IMAGES[2]?.url || DEFAULT_GALLERY_IMAGES[0]?.url || '',
+    content: [
+      "L'aménagement intérieur sur-mesure en plaque de plâtre connaît un essor remarquable sur le Bassin d'Arcachon. Qu'il s'agisse d'optimiser un pan de mur complet dans une maison contemporaine à Gujan-Mestras ou d'aménager un recoin sous rampant dans une échoppe du Teich, la bibliothèque et le meuble TV intégrés en placo offrent une continuité architecturale incomparable.",
+      "### Pourquoi choisir le placo pour votre meuble TV ou bibliothèque murale ?",
+      "Contrairement aux meubles en kit du commerce ou au bois mélaminé qui créent des ruptures visuelles et accumulent la poussière sur les côtés, une structure en placo fait corps avec le bâti de la maison. Elle peut être peinte exactement de la même teinte que vos murs ou sublimée par une couleur de contraste (terracotta, vert sauge, bleu nuit). De plus, elle s'adapte au millimètre près aux contraintes d'angle, de sous-pente ou d'allège de fenêtre.",
+      "### La structure métallique et la résistance au poids des livres",
+      "La question récurrente de nos clients concerne la solidité : un meuble en plâtre peut-il supporter des centaines de romans et d'objets d'art ? La réponse réside dans la charpente métallique. Pour chaque étagère porteuse, nous doublons les montants dos-à-dos ou insérons des renforts en bois massif raboté à l'intérieur de l'ossature. La mise en œuvre de plaques haute dureté (type Habito ou BA13 renforcé) garantit une rigidité absolue sans risque de fléchissement dans le temps.",
+      "### Câblage invisible et niches lumineuses à rubans LED",
+      "Le grand avantage d'un meuble TV en placo est l'effacement complet des fils électriques, prises et câbles HDMI. Tous les réseaux sont passés sous gaines ICTA avant le vissage des parements. Nous intégrons également des profilés aluminium invisibles avec diffuseurs opales pour encastrer des bandeaux LED blanc chaud (2700K ou 3000K). L'effet d'éclairage indirect en rétro-éclairage confère à la pièce une ambiance douce et haut de gamme lors des soirées au coin du salon.",
+      "### Finitions des angles et ratissage soigné",
+      "Pour que les arêtes restent parfaitement rectilignes et résistantes aux chocs du quotidien, nous posons des bandes armées papier renforcées et des cornières d'angle métalliques no-coat. L'ensemble de la bibliothèque reçoit ensuite un ratissage complet à l'enduit fin pour une surface d'une douceur parfaite, prête pour les finitions peinture."
+    ]
+  },
+  {
+    id: 'post-renovation-plafond-ancien-lattis-platre',
+    slug: 'renovation-plafond-ancien-lattis-briquette-fissures-bassin-arcachon',
+    title: 'Plafonds anciens en lattis et briquettes : Réparer le plâtre traditionnel ou poser un faux-plafond suspendu ?',
+    category: 'Rénovation & Conseils',
+    excerpt: 'Fissures, décollement du plâtre ou plafonnage affaissé dans une maison ancienne : le diagnostic professionnel pour choisir entre restauration traditionnelle et doublage placo.',
+    readingTime: '5 min de lecture',
+    date: 'Septembre 2026',
+    author: 'Yoni Parat • Artisan Plaquiste Bassin d\'Arcachon',
+    imageUrl: DEFAULT_GALLERY_IMAGES[3]?.url || DEFAULT_GALLERY_IMAGES[1]?.url || '',
+    content: [
+      "Dans les maisons anciennes, villas arcachonnaises de la Ville d'Hiver et échoppes réparties autour du Bassin d'Arcachon (Arcachon, La Teste-de-Buch, Le Teich, Biganos), les plafonds sont très fréquemment constitués de lattis bois (fines lattes clouées sous solives) sur lesquels a été appliqué du plâtre traditionnel au XIXe et début XXe siècle. Avec le temps, les vibrations de la toiture et les variations climatiques de l'océan, des désordres peuvent apparaître.",
+      "### Les signes qui doivent vous alerter",
+      "Un simple coup d'œil ne suffit pas. Lors de nos visites de diagnostic, nous observons plusieurs indicateurs : les fissures traversantes en étoile (qui trahissent une désolidarisation du lattis), le son creux lorsqu'on tapote doucement la surface, et la présence de ventres ou ondulations sous la charge du plâtre. Si le plâtre commence à descendre par plaques, il y a risque de chute et une intervention sécurisée s'impose.",
+      "### Option 1 : La restauration au plâtre traditionnel",
+      "Si le lattis bois sous-jacent est encore sain et bien fixé aux solives, une restauration patrimoniale est envisageable. Elle consiste à purger minutieusement les zones décollées, à refixer mécaniquement le lattis à l'aide de vis spéciales à rondelles larges de maintien, puis à réappliquer un plâtre de rebouchage traditionnel armé de filasse ou de bandes de renfort avant enduisage de lissage.",
+      "### Option 2 : Le faux-plafond suspendu sur ossature métallique",
+      "Dans 80 % des cas de rénovation globale, la pose d'un faux-plafond suspendu en plaques de plâtre BA13 constitue la solution la plus pérenne et économique. En fixant des suspentes antivibratiles courtes (système Stil F530) directement sous les solives, on rattrape un niveau laser irréprochable tout en insérant un matelas d'isolation en laine minérale de 100 à 160 mm. Résultat : une disparition totale des fissures futures, une baisse immédiate de la facture de chauffage et une nette atténuation des bruits de pas de l'étage.",
+      "### La propreté du chantier : Le SAS anti-poussière sous dépression",
+      "Toucher à un vieux plafond en plâtre produit une poussière volatile extrêmement fine qui s'infiltre partout dans les habitations. C'est pourquoi Parat & Bouey installe systématiquement un SAS étanche en polyane thermocollé avec extracteur d'air muni d'un filtre haute efficacité. Vous pouvez continuer à vivre sereinement dans votre maison pendant toute la durée des travaux sans craindre pour vos meubles et équipements."
+    ]
+  },
+  {
     id: 'post-degat-des-eaux',
     slug: 'que-faire-apres-degat-des-eaux-plafond-platre-bassin-arcachon',
     title: 'Que faire après un dégât des eaux sur un plafond en plâtre ou placo ?',
@@ -83,7 +127,7 @@ export const DEFAULT_BLOG_POSTS: BlogPost[] = [
     readingTime: '5 min de lecture',
     date: 'Août 2026',
     author: 'Conseils Plâtrerie • Bassin d\'Arcachon',
-    imageUrl: DEFAULT_GALLERY_IMAGES[3]?.url || DEFAULT_GALLERY_IMAGES[0]?.url || '',
+    imageUrl: DEFAULT_GALLERY_IMAGES[4]?.url || DEFAULT_GALLERY_IMAGES[0]?.url || '',
     content: [
       "Que ce soit pour créer une suite parentale, redistribuer une échoppe ou aménager des combles, la pose de cloisons en plaques de plâtre (BA13) nécessite de sélectionner la bonne typologie de plaque selon les contraintes de chaque pièce.",
       "### Pièces humides : L'impératif de la plaque hydrofuge (Vert/Bleu)",
@@ -103,16 +147,15 @@ export const DEFAULT_BLOG_POSTS: BlogPost[] = [
     readingTime: '4 min de lecture',
     date: 'Juillet 2026',
     author: 'Conseils Plâtrerie • Bassin d\'Arcachon',
-    imageUrl: DEFAULT_GALLERY_IMAGES[4]?.url || DEFAULT_GALLERY_IMAGES[0]?.url || '',
+    imageUrl: DEFAULT_GALLERY_IMAGES[5]?.url || DEFAULT_GALLERY_IMAGES[0]?.url || '',
     content: [
       "Vous observez des bandes visibles ou des ombres au niveau des joints lorsque la lumière du soir entre par la baie vitrée ? Le ratissage est la solution professionnelle pour obtenir un aspect plâtre uniforme.",
       "### Qu'est-ce que le ratissage de plafond ?",
       "Le ratissage consiste à appliquer une fine pellicule d'enduit de lissage sur l'intégralité du plafond ou du mur, et pas seulement sur la zone des bandes. Cela uniformise la porosité entre la plaque de carton et le plâtre des joints.",
-      "### Pourquoi l'impression sous-couche ne suffit pas toujours ?",
+      "### Pourquoi l'impression sous-couche ne poursuit pas toujours ?",
       "La plaque de plâtre cartonnée et l'enduit à joint n'ont pas la même absorption de peinture. Sans ratissage complet, la lumière rasante révèle la différence de grain, créant ce qu'on appelle 'le spectre des bandes'.",
       "### Le contrôle à la lampe rasante",
       "Après séchage, un ponçage au papier de verre grain très fin (180 à 220) sous éclairage rasant garantit un support prêt à peindre de niveau Q4 (qualité maximale)."
     ]
   }
 ];
-

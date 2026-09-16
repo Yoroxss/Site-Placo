@@ -178,8 +178,16 @@ export default function DynamicSeo() {
             "@type": "Offer",
             "itemOffered": {
               "@type": "Service",
-              "name": "Plâtrerie traditionnelle et plafonnage",
-              "description": "Réparation d'enduits, de murs en briquette et plafonds en lattis."
+              "name": "Aménagements et bibliothèques sur-mesure en placo",
+              "description": "Conception de meubles TV intégrés, niches lumineuses LED, étagères renforcées et agencements sur-mesure."
+            }
+          },
+          {
+            "@type": "Offer",
+            "itemOffered": {
+              "@type": "Service",
+              "name": "Plâtrerie traditionnelle et rénovation de plafonds en lattis",
+              "description": "Réparation d'enduits, de murs en briquette, reprise de plafonds en lattis et pose de faux-plafonds suspendus."
             }
           },
           {
