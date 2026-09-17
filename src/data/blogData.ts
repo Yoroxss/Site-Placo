@@ -22,7 +22,7 @@ export const DEFAULT_BLOG_POSTS: BlogPost[] = [
     excerpt: 'Niches décoratives, profilés LED encastrés, passage invisible des câbles et renforts de charge : comment concevoir un meuble intégré sur-mesure en plaque de plâtre.',
     readingTime: '6 min de lecture',
     date: 'Septembre 2026',
-    author: 'Yoni Parat • Artisan Plaquiste Bassin d\'Arcachon',
+    author: 'Yohann Bouey • Artisan Plaquiste Bassin d\'Arcachon',
     imageUrl: DEFAULT_GALLERY_IMAGES[2]?.url || DEFAULT_GALLERY_IMAGES[0]?.url || '',
     content: [
       "L'aménagement intérieur sur-mesure en plaque de plâtre connaît un essor remarquable sur le Bassin d'Arcachon. Qu'il s'agisse d'optimiser un pan de mur complet dans une maison contemporaine à Gujan-Mestras ou d'aménager un recoin sous rampant dans une échoppe du Teich, la bibliothèque et le meuble TV intégrés en placo offrent une continuité architecturale incomparable.",
@@ -44,7 +44,7 @@ export const DEFAULT_BLOG_POSTS: BlogPost[] = [
     excerpt: 'Fissures, décollement du plâtre ou plafonnage affaissé dans une maison ancienne : le diagnostic professionnel pour choisir entre restauration traditionnelle et doublage placo.',
     readingTime: '5 min de lecture',
     date: 'Septembre 2026',
-    author: 'Yoni Parat • Artisan Plaquiste Bassin d\'Arcachon',
+    author: 'Yohann Bouey • Artisan Plaquiste Bassin d\'Arcachon',
     imageUrl: DEFAULT_GALLERY_IMAGES[3]?.url || DEFAULT_GALLERY_IMAGES[1]?.url || '',
     content: [
       "Dans les maisons anciennes, villas arcachonnaises de la Ville d'Hiver et échoppes réparties autour du Bassin d'Arcachon (Arcachon, La Teste-de-Buch, Le Teich, Biganos), les plafonds sont très fréquemment constitués de lattis bois (fines lattes clouées sous solives) sur lesquels a été appliqué du plâtre traditionnel au XIXe et début XXe siècle. Avec le temps, les vibrations de la toiture et les variations climatiques de l'océan, des désordres peuvent apparaître.",

@@ -130,7 +130,7 @@ export default function FloatingMobileCta() {
             </div>
 
             <p className="text-xs text-white/80 font-light mb-4 leading-relaxed">
-              Une question ou un projet sur le Bassin d'Arcachon ? Contactez Yoni directement ou demandez votre devis sous 48h.
+              Une question ou un projet sur le Bassin d'Arcachon ? Contactez Yohann directement ou demandez votre devis sous 48h.
             </p>
 
             {/* Main CTAs */}

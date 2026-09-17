@@ -104,9 +104,29 @@ export default function DynamicSeo() {
     schemas.push({
       "@context": "https://schema.org",
       "@type": ["LocalBusiness", "HomeAndConstructionBusiness"],
-      "name": "Parat & Bouey - Artisan Plaquiste Jointeur",
+      "name": "Parat & Bouey - Artisan Plâtrier Plaquiste Jointeur",
       "legalName": "Parat & Bouey",
-      "description": seo.aiAgentInstructions || "Artisan Plaquiste et Jointeur sur le Bassin d'Arcachon. Spécialiste de la rénovation intérieure, plâtrerie traditionnelle, pose de placo, joints invisibles et isolation. Intervention dans un rayon de 20 km autour du Teich. Garantie Décennale chez Orus.",
+      "alternateName": [
+        "Parat & Bouey Plâtrerie",
+        "Plâtrier Gujan-Mestras Parat & Bouey",
+        "Plaquiste Gujan-Mestras Parat & Bouey",
+        "Plâtrier Plaquiste Bassin d'Arcachon"
+      ],
+      "foundingDate": "2010",
+      "founder": {
+        "@type": "Person",
+        "name": "Yohann Bouey",
+        "jobTitle": "Gérant & Artisan Plâtrier-Plaquiste",
+        "description": "Gérant et artisan plâtrier formé en 2009, en exercice professionnel continu depuis 2010 (plus de 15 ans d'expérience métier sur le Bassin d'Arcachon).",
+        "knowsAbout": [
+          "Plâtrerie traditionnelle",
+          "Pose de placo",
+          "Bandes à joint",
+          "Plâtrier Gujan-Mestras",
+          "SAS anti-poussière sous dépression"
+        ]
+      },
+      "description": seo.aiAgentInstructions || "Artisan Plâtrier et Plaquiste Jointeur sur le Bassin d'Arcachon (Gujan-Mestras, Le Teich, La Teste, Arcachon). Plus de 15 ans d'expérience métier (depuis 2010). Spécialiste de la rénovation intérieure, plâtrerie traditionnelle, pose de placo, joints invisibles et isolation. Garantie Décennale chez Orus.",
       "image": seo.ogImage || "https://www.plaquiste-arcachon.fr/wp-content/uploads/2026/06/IMG_0285-1.jpg",
       "url": "https://www.plaquiste-arcachon.fr",
       "telephone": "+33672159399",

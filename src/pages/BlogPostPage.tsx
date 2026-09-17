@@ -115,8 +115,8 @@ export default function BlogPostPage() {
     "datePublished": "2026-08-01",
     "author": {
       "@type": "Person",
-      "name": "Yoni Parat",
-      "jobTitle": "Artisan Plâtrier-Jointeur",
+      "name": "Yohann Bouey",
+      "jobTitle": "Gérant & Artisan Plâtrier-Plaquiste",
       "worksFor": {
         "@type": "LocalBusiness",
         "name": "Parat & Bouey"

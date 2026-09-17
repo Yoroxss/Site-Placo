@@ -25,8 +25,16 @@ export default function CityPage() {
   return (
     <>
       <Helmet>
-        <title>Artisan Plaquiste Jointeur à {formattedCity} | Parat & Bouey</title>
-        <meta name="description" content={`Vous cherchez un artisan plaquiste jointeur qualifié à ${formattedCity} ? Rénovation intérieure, plâtrerie, isolation. Demandez votre devis gratuit.`} />
+        <title>{`Artisan Plâtrier & Plaquiste à ${formattedCity} | 15 ans d'expérience | Parat & Bouey`}</title>
+        <meta 
+          name="description" 
+          content={`Artisan plâtrier et plaquiste jointeur à ${formattedCity}. Formé en 2009, plus de 15 ans d'expérience métier continue (depuis 2010). Plâtrerie traditionnelle, placo, bandes et isolation. Devis gratuit au 06 72 15 93 99.`} 
+        />
+        <link rel="canonical" href={`https://www.plaquiste-arcachon.fr/artisan-plaquiste/${city || 'le-teich'}`} />
+        <meta property="og:title" content={`Artisan Plâtrier & Plaquiste à ${formattedCity} | Parat & Bouey`} />
+        <meta property="og:description" content={`Artisan plâtrier et plaquiste jointeur à ${formattedCity} avec plus de 15 ans d'expérience métier. Plâtrerie, placo et rénovation.`} />
+        <meta property="og:url" content={`https://www.plaquiste-arcachon.fr/artisan-plaquiste/${city || 'le-teich'}`} />
+        <meta property="og:type" content="website" />
       </Helmet>
 
       <Header />
@@ -56,19 +64,24 @@ export default function CityPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8 }}
             >
-              <div className="inline-flex items-center space-x-2 mb-6">
+              <div className="inline-flex items-center space-x-2 mb-4">
                 <span className="w-12 h-[1px] bg-[#d1d1c4]"></span>
-                <span className="text-[10px] uppercase tracking-[0.3em] text-[#d1d1c4]">Intervention à {formattedCity}</span>
+                <span className="text-[10px] uppercase tracking-[0.3em] text-[#d1d1c4]">Artisan Local à {formattedCity}</span>
                 <span className="w-12 h-[1px] bg-[#d1d1c4]"></span>
+              </div>
+
+              {/* Experience Badge */}
+              <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] font-mono mb-6">
+                <span>★ Formé en 2009 • 15+ ans d'expérience métier (depuis 2010)</span>
               </div>
               
               <h1 className="text-4xl md:text-6xl font-light text-white mb-6 leading-tight" style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic' }}>
-                Artisan Plaquiste & Jointeur à <span className="text-[#d1d1c4]">{formattedCity}</span>
+                Artisan Plâtrier & Plaquiste à <span className="text-[#d1d1c4]">{formattedCity}</span>
               </h1>
               
               <p className="text-sm md:text-base text-white/60 leading-relaxed max-w-2xl mx-auto mb-10 font-light">
-                Expert en aménagement intérieur, plâtrerie traditionnelle et isolation à {formattedCity}. 
-                Une rigueur absolue pour des finitions parfaites, du sol au plafond.
+                Expert en plâtrerie traditionnelle, pose de placo, bandes à joint et isolation à {formattedCity}. 
+                Un savoir-faire artisanal éprouvé de plus de 15 ans pour des finitions lisses et durables.
               </p>
 
               {/* Action Buttons */}
@@ -131,16 +144,31 @@ export default function CityPage() {
         </section>
 
         {/* SEO TEXT CONTENT */}
-        <section className="py-24 px-6 md:px-12 max-w-4xl mx-auto text-center">
-          <h2 className="text-2xl md:text-3xl font-light text-white mb-8" style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic' }}>
-            Votre projet de rénovation à {formattedCity}
-          </h2>
-          <div className="space-y-6 text-sm text-white/60 leading-relaxed text-justify md:text-center">
+        <section className="py-24 px-6 md:px-12 max-w-4xl mx-auto">
+          <div className="text-center mb-12">
+            <span className="text-amber-400 font-mono text-xs uppercase tracking-widest block mb-2">Artisanat local certifié</span>
+            <h2 className="text-2xl md:text-3xl font-light text-white" style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic' }}>
+              Votre projet de plâtrerie et rénovation à {formattedCity}
+            </h2>
+          </div>
+
+          <div className="space-y-6 text-sm text-white/70 leading-relaxed text-justify md:text-left">
             <p>
-              Parat & Bouey est votre partenaire de confiance pour tous vos projets de rénovation et d'aménagement intérieur à {formattedCity} et ses alentours. Que vous souhaitiez créer de nouveaux espaces, isoler thermiquement et phoniquement vos murs, ou réaliser des faux-plafonds, notre expertise d'artisan plaquiste et jointeur vous garantit un résultat à la hauteur de vos attentes.
+              Vous recherchez un **artisan plâtrier-plaquiste qualifié à {formattedCity}** ou aux environs immédiats ? Parat & Bouey intervient pour tous vos travaux d'aménagement intérieur, de doublage thermique et acoustique, de pose de faux-plafonds et de réalisation de bandes à joint prêtes à peindre.
             </p>
+            
+            <div className="p-6 rounded-2xl bg-amber-500/5 border border-amber-500/20 my-6">
+              <h3 className="text-amber-300 font-medium text-base mb-2 flex items-center space-x-2">
+                <span>✦</span>
+                <span>Un artisan chevronné (15+ ans d'expérience) sur le Bassin</span>
+              </h3>
+              <p className="text-xs text-white/70 leading-relaxed">
+                Si la structure juridique actuelle Parat & Bouey est enregistrée sous une immatriculation récente (référencée sur l'annuaire d'entreprises data.gouv), son gérant et artisan Yohann Bouey exerce sans discontinuer depuis 2010 après avoir été formé dès 2009. C'est l'assurance d'un savoir-faire solide, de finitions irréprochables sous éclairage rasant et d'une garantie décennale en règle.
+              </p>
+            </div>
+
             <p>
-              Nous mettons un point d'honneur à respecter votre lieu de vie à {formattedCity}. Nos méthodes de travail rigoureuses (SAS anti-poussière, protection complète) assurent un chantier propre et des finitions soignées, prêtes à peindre.
+              À {formattedCity} (que ce soit pour une maison contemporaine, une villa rénovée ou une extension en ossature bois), nous protégeons minutieusement vos sols et mobiliers grâce à notre protocole exclusif de **SAS anti-poussière sous dépression**. Vous profitez d'un intérieur sain sans poussière volatile durant tout le chantier.
             </p>
           </div>
         </section>
