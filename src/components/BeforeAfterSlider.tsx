@@ -4,9 +4,11 @@ import { GripVertical } from 'lucide-react';
 interface BeforeAfterSliderProps {
   beforeImage: string;
   afterImage: string;
+  altBefore?: string;
+  altAfter?: string;
 }
 
-export default function BeforeAfterSlider({ beforeImage, afterImage }: BeforeAfterSliderProps) {
+export default function BeforeAfterSlider({ beforeImage, afterImage, altBefore, altAfter }: BeforeAfterSliderProps) {
   const [sliderPosition, setSliderPosition] = useState(50);
   const containerRef = useRef<HTMLDivElement>(null);
   const rectRef = useRef<DOMRect | null>(null);
@@ -100,7 +102,12 @@ export default function BeforeAfterSlider({ beforeImage, afterImage }: BeforeAft
     >
       {/* After Image (Background) */}
       <div className="absolute inset-0">
-        <img src={afterImage || null} alt="Après les travaux" className="w-full h-full object-cover" draggable={false} />
+        <img 
+          src={afterImage || null} 
+          alt={altAfter || "Après les travaux de rénovation et plâtrerie"} 
+          className="w-full h-full object-cover" 
+          draggable={false} 
+        />
         <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-widest text-[#d1d1c4] shadow-lg border border-white/5 font-mono">Après</div>
       </div>
 
@@ -109,7 +116,12 @@ export default function BeforeAfterSlider({ beforeImage, afterImage }: BeforeAft
         className="absolute inset-0 overflow-hidden"
         style={{ clipPath: `inset(0 ${100 - sliderPosition}% 0 0)` }}
       >
-        <img src={beforeImage || null} alt="Avant les travaux" className="absolute inset-0 w-full h-full object-cover max-w-none" draggable={false} />
+        <img 
+          src={beforeImage || null} 
+          alt={altBefore || "Avant les travaux"} 
+          className="absolute inset-0 w-full h-full object-cover max-w-none" 
+          draggable={false} 
+        />
         <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-widest text-white/70 shadow-lg border border-white/5 font-mono">Avant</div>
       </div>
 

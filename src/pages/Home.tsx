@@ -12,6 +12,7 @@ import { ShieldCheck, Wind, Ruler, ChevronLeft, ChevronRight, X } from 'lucide-r
 const QuoteForm = lazy(() => import('../components/QuoteForm'));
 const Carousel3D = lazy(() => import('../components/Carousel3D'));
 const BeforeAfterSlider = lazy(() => import('../components/BeforeAfterSlider'));
+const BeforeAfterSection = lazy(() => import('../components/BeforeAfterSection'));
 const FaqSection = lazy(() => import('../components/FaqSection'));
 const InterventionZone = lazy(() => import('../components/InterventionZone'));
 const ReviewsSection = lazy(() => import('../components/ReviewsSection'));
@@ -57,6 +58,17 @@ export default function Home() {
 
   const displayImages = images.length > 0 ? images : DEFAULT_GALLERY_IMAGES;
   const favoriteImage = displayImages.find(img => img.isFavorite === true) || displayImages[0];
+
+  const sortedBeforeAfterItems = [...beforeAfterItems].sort((a, b) => {
+    if (a.isFirst && !b.isFirst) return -1;
+    if (!a.isFirst && b.isFirst) return 1;
+    const orderA = typeof a.order === 'number' ? a.order : 9999;
+    const orderB = typeof b.order === 'number' ? b.order : 9999;
+    if (orderA !== orderB) return orderA - orderB;
+    const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt?.seconds ? a.createdAt.seconds * 1000 : 0);
+    const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt?.seconds ? b.createdAt.seconds * 1000 : 0);
+    return timeB - timeA;
+  });
 
   const scrollLeft = () => {
     if (scrollRef.current) {
@@ -409,38 +421,10 @@ export default function Home() {
         </AnimatePresence>
 
         {/* AVANT/APRES */}
-        {beforeAfterItems.length > 0 && (
-          <section className="py-24 md:py-32 px-6 md:px-12 border-t border-white/5 relative bg-[#050505]">
-            <div className="max-w-5xl mx-auto">
-              <div className="flex justify-center mb-16">
-                <div className="inline-flex items-center space-x-2 text-[#d1d1c4] uppercase tracking-widest text-[10px]">
-                  <span className="w-8 h-[1px] bg-[#d1d1c4]"></span>
-                  <span>L'évolution</span>
-                  <span className="w-8 h-[1px] bg-[#d1d1c4]"></span>
-                </div>
-              </div>
-              
-              <div className="space-y-16">
-                {beforeAfterItems.map((item, idx) => (
-                  <motion.div 
-                    key={item.id}
-                    initial={{ opacity: 0, y: 30 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true, margin: "-50px" }}
-                    transition={{ duration: 0.8, delay: idx * 0.1 }}
-                    className="flex flex-col items-center"
-                  >
-                    <h3 className="text-2xl md:text-3xl font-light text-white mb-8" style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic' }}>
-                      {item.title}
-                    </h3>
-                    <Suspense fallback={null}>
-                      <BeforeAfterSlider beforeImage={item.beforeUrl} afterImage={item.afterUrl} />
-                    </Suspense>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-          </section>
+        {sortedBeforeAfterItems.length > 0 && (
+          <Suspense fallback={<div className="h-96 w-full" />}>
+            <BeforeAfterSection items={sortedBeforeAfterItems} />
+          </Suspense>
         )}
 
         {/* SERVICES */}

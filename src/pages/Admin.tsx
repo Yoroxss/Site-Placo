@@ -8,7 +8,7 @@ import {
   PanelLeftClose, PanelLeftOpen, ExternalLink, Pencil, Edit3, Check, 
   Download, RefreshCw, X, Phone, MessageCircle, Mail, Smartphone,
   Share2, LayoutGrid, SlidersHorizontal, CheckCircle2, ChevronRight,
-  ShieldCheck, ArrowUpRight, Car, Calendar
+  ShieldCheck, ArrowUpRight, Car, Calendar, ArrowUp, ArrowDown
 } from 'lucide-react';
 import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -35,16 +35,37 @@ export default function Admin() {
   
   // States for Before/After upload
   const [baTitle, setBaTitle] = useState('');
+  const [baDescription, setBaDescription] = useState('');
+  const [baAltBefore, setBaAltBefore] = useState('');
+  const [baAltAfter, setBaAltAfter] = useState('');
+  const [baTag, setBaTag] = useState('');
+  const [baLocation, setBaLocation] = useState('');
+  const [baDirectives, setBaDirectives] = useState('');
   const [beforeFile, setBeforeFile] = useState<File | null>(null);
   const [afterFile, setAfterFile] = useState<File | null>(null);
   const [baBeforeUrl, setBaBeforeUrl] = useState('');
   const [baAfterUrl, setBaAfterUrl] = useState('');
   const [baIsUrlMode, setBaIsUrlMode] = useState(false);
   const [baUploading, setBaUploading] = useState(false);
+  const [baScanningAi, setBaScanningAi] = useState(false);
 
   // States for Before/After editing
-  const [editingBa, setEditingBa] = useState<{ id: string; title: string; beforeUrl: string; afterUrl: string } | null>(null);
+  const [editingBa, setEditingBa] = useState<{ 
+    id: string; 
+    title: string; 
+    description: string;
+    beforeUrl: string; 
+    afterUrl: string;
+    altBefore: string;
+    altAfter: string;
+    tag: string;
+    location: string;
+    isFirst?: boolean;
+    order?: number;
+  } | null>(null);
   const [baSaving, setBaSaving] = useState(false);
+  const [baReanalyzing, setBaReanalyzing] = useState(false);
+  const [baReanalyzeDirectives, setBaReanalyzeDirectives] = useState('');
 
   // States for manual Review creation
   const [revAuthor, setRevAuthor] = useState('');
@@ -515,9 +536,72 @@ export default function Admin() {
     setItemToDelete({ id, type: 'gallery' });
   };
 
+  const handleScanBaWithAi = async () => {
+    if (baIsUrlMode) {
+      if (!baBeforeUrl.trim() && !baAfterUrl.trim()) {
+        setFeedback({ message: "Veuillez renseigner au moins une adresse d'image (Avant ou Après) pour l'analyse IA.", type: 'error' });
+        return;
+      }
+    } else {
+      if (!beforeFile && !afterFile) {
+        setFeedback({ message: "Veuillez sélectionner au moins une photo (Avant ou Après) pour l'analyse IA.", type: 'error' });
+        return;
+      }
+    }
+
+    setBaScanningAi(true);
+    setFeedback({ message: "Analyse visuelle et génération du titre, description et balises SEO par l'IA...", type: 'success' });
+    try {
+      let beforeBase64 = "";
+      let afterBase64 = "";
+
+      if (!baIsUrlMode) {
+        if (beforeFile) {
+          beforeBase64 = await resizeImage(beforeFile, 800, 800, 0.70);
+        }
+        if (afterFile) {
+          afterBase64 = await resizeImage(afterFile, 800, 800, 0.70);
+        }
+      }
+
+      const res = await fetch('/api/generate-before-after-metadata', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          beforeBase64: beforeBase64 || undefined,
+          beforeUrl: baIsUrlMode && baBeforeUrl.trim() ? baBeforeUrl.trim() : undefined,
+          afterBase64: afterBase64 || undefined,
+          afterUrl: baIsUrlMode && baAfterUrl.trim() ? baAfterUrl.trim() : undefined,
+          userDirectives: baDirectives
+        })
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.error || "Erreur de réponse du serveur.");
+      }
+
+      const data = await res.json();
+      if (data) {
+        if (data.title) setBaTitle(data.title);
+        if (data.description) setBaDescription(data.description);
+        if (data.altBefore) setBaAltBefore(data.altBefore);
+        if (data.altAfter) setBaAltAfter(data.altAfter);
+        if (data.tag) setBaTag(data.tag);
+        if (data.location) setBaLocation(data.location);
+        setFeedback({ message: `Titre et balises SEO générés par l'IA : « ${data.title} »`, type: 'success' });
+      }
+    } catch (err: any) {
+      console.error("Error scanning BA with AI:", err);
+      setFeedback({ message: "Erreur de génération IA : " + (err.message || err), type: 'error' });
+    } finally {
+      setBaScanningAi(false);
+    }
+  };
+
   const handleBaUpload = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!baTitle) {
+    if (!baTitle.trim()) {
       setFeedback({ message: "Veuillez fournir un titre pour la réalisation.", type: 'error' });
       return;
     }
@@ -546,20 +630,31 @@ export default function Admin() {
 
       await addDoc(collection(db, 'beforeAfter'), {
         title: baTitle.trim(),
+        description: baDescription.trim() || "Rénovation et transformation complète des surfaces, cloisons et finitions sur le Bassin d'Arcachon par Parat & Bouey.",
         beforeUrl: beforeFinalUrl,
         afterUrl: afterFinalUrl,
+        altBefore: baAltBefore.trim() || `État initial avant travaux de plâtrerie - ${baTitle.trim()}`,
+        altAfter: baAltAfter.trim() || `Transformation finale réalisée par Parat & Bouey - ${baTitle.trim()}`,
+        tag: baTag.trim() || "Rénovation & Plâtrerie",
+        location: baLocation.trim() || "Bassin d'Arcachon",
         createdAt: serverTimestamp(),
         adminCode: adminCode || '0107'
       });
 
       setBaTitle('');
+      setBaDescription('');
+      setBaAltBefore('');
+      setBaAltAfter('');
+      setBaTag('');
+      setBaLocation('');
+      setBaDirectives('');
       setBeforeFile(null);
       setAfterFile(null);
       setBaBeforeUrl('');
       setBaAfterUrl('');
       if (beforeInputRef.current) beforeInputRef.current.value = '';
       if (afterInputRef.current) afterInputRef.current.value = '';
-      setFeedback({ message: "Images Avant/Après ajoutées avec succès !", type: 'success' });
+      setFeedback({ message: `Réalisation Avant / Après « ${baTitle.trim()} » publiée avec succès !`, type: 'success' });
     } catch (error) {
       console.error("Upload error:", error);
       setFeedback({ message: "Erreur d'upload: " + getErrorMessage(error), type: 'error' });
@@ -568,13 +663,162 @@ export default function Admin() {
     }
   };
 
+  const sortedBaItems = [...beforeAfterItems].sort((a, b) => {
+    if (a.isFirst && !b.isFirst) return -1;
+    if (!a.isFirst && b.isFirst) return 1;
+    const orderA = typeof a.order === 'number' ? a.order : 9999;
+    const orderB = typeof b.order === 'number' ? b.order : 9999;
+    if (orderA !== orderB) return orderA - orderB;
+    const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt?.seconds ? a.createdAt.seconds * 1000 : 0);
+    const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt?.seconds ? b.createdAt.seconds * 1000 : 0);
+    return timeB - timeA;
+  });
+
+  const handleSetFirstBa = async (id: string) => {
+    try {
+      setFeedback({ message: "Mise en avant du projet en 1ère position...", type: "success" });
+      const currentList = sortedBaItems;
+      const targetItem = currentList.find(item => item.id === id);
+      if (!targetItem) return;
+
+      const remaining = currentList.filter(item => item.id !== id);
+      const newList = [targetItem, ...remaining];
+
+      const promises = newList.map(async (item, idx) => {
+        await updateDoc(doc(db, "beforeAfter", item.id), {
+          isFirst: idx === 0,
+          order: idx,
+          adminCode: adminCode || '0107'
+        });
+      });
+      await Promise.all(promises);
+      setFeedback({ message: `Le projet « ${targetItem.title} » s'affichera désormais en premier sur le site !`, type: "success" });
+    } catch (err: any) {
+      console.error("Error setting first BA item:", err);
+      setFeedback({ message: "Erreur lors de la mise en avant : " + getErrorMessage(err), type: "error" });
+    }
+  };
+
+  const handleMoveBaUp = async (index: number) => {
+    if (index <= 0) return;
+    try {
+      const currentList = [...sortedBaItems];
+      const prevIndex = index - 1;
+      const itemToMove = currentList[index];
+      const otherItem = currentList[prevIndex];
+
+      currentList[prevIndex] = itemToMove;
+      currentList[index] = otherItem;
+
+      const promises = currentList.map(async (item, idx) => {
+        await updateDoc(doc(db, "beforeAfter", item.id), {
+          order: idx,
+          isFirst: idx === 0,
+          adminCode: adminCode || '0107'
+        });
+      });
+      await Promise.all(promises);
+      setFeedback({ message: `Projet « ${itemToMove.title} » déplacé vers le haut (Position ${prevIndex + 1}) !`, type: "success" });
+    } catch (err: any) {
+      console.error("Error moving BA item up:", err);
+      setFeedback({ message: "Erreur lors du déplacement : " + getErrorMessage(err), type: "error" });
+    }
+  };
+
+  const handleMoveBaDown = async (index: number) => {
+    if (index >= sortedBaItems.length - 1) return;
+    try {
+      const currentList = [...sortedBaItems];
+      const nextIndex = index + 1;
+      const itemToMove = currentList[index];
+      const otherItem = currentList[nextIndex];
+
+      currentList[nextIndex] = itemToMove;
+      currentList[index] = otherItem;
+
+      const promises = currentList.map(async (item, idx) => {
+        await updateDoc(doc(db, "beforeAfter", item.id), {
+          order: idx,
+          isFirst: idx === 0,
+          adminCode: adminCode || '0107'
+        });
+      });
+      await Promise.all(promises);
+      setFeedback({ message: `Projet « ${itemToMove.title} » déplacé vers le bas (Position ${nextIndex + 1}) !`, type: "success" });
+    } catch (err: any) {
+      console.error("Error moving BA item down:", err);
+      setFeedback({ message: "Erreur lors du déplacement : " + getErrorMessage(err), type: "error" });
+    }
+  };
+
   const handleStartEditBa = (item: any) => {
     setEditingBa({
       id: item.id,
       title: item.title || '',
+      description: item.description || '',
       beforeUrl: item.beforeUrl || '',
-      afterUrl: item.afterUrl || ''
+      afterUrl: item.afterUrl || '',
+      altBefore: item.altBefore || '',
+      altAfter: item.altAfter || '',
+      tag: item.tag || '',
+      location: item.location || '',
+      isFirst: !!item.isFirst,
+      order: typeof item.order === 'number' ? item.order : 0
     });
+  };
+
+  const handleReanalyzeBa = async () => {
+    if (!editingBa) return;
+    setBaReanalyzing(true);
+    setFeedback({ message: "Réanalyse de la comparaison Avant / Après par l'IA...", type: 'success' });
+    try {
+      const payload: any = {
+        userDirectives: baReanalyzeDirectives
+      };
+
+      if (editingBa.beforeUrl.startsWith('data:')) {
+        payload.beforeBase64 = await resizeBase64Image(editingBa.beforeUrl, 800, 800, 0.70);
+      } else {
+        payload.beforeUrl = editingBa.beforeUrl;
+      }
+
+      if (editingBa.afterUrl.startsWith('data:')) {
+        payload.afterBase64 = await resizeBase64Image(editingBa.afterUrl, 800, 800, 0.70);
+      } else {
+        payload.afterUrl = editingBa.afterUrl;
+      }
+
+      const res = await fetch('/api/generate-before-after-metadata', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.error || "Erreur lors de la réanalyse.");
+      }
+
+      const data = await res.json();
+      if (data) {
+        setEditingBa(prev => prev ? ({
+          ...prev,
+          title: data.title || prev.title,
+          description: data.description || prev.description,
+          altBefore: data.altBefore || prev.altBefore,
+          altAfter: data.altAfter || prev.altAfter,
+          tag: data.tag || prev.tag,
+          location: data.location || prev.location
+        }) : null);
+        setFeedback({ message: `Réanalyse réussie : « ${data.title} »`, type: 'success' });
+      }
+    } catch (err: any) {
+      console.error("Error reanalyzing BA:", err);
+      setFeedback({ message: "Erreur réanalyse IA: " + (err.message || err), type: 'error' });
+    } finally {
+      setBaReanalyzing(false);
+      setBaReanalyzeDirectives('');
+    }
   };
 
   const handleSaveEditBa = async (e: React.FormEvent) => {
@@ -582,10 +826,24 @@ export default function Admin() {
     if (!editingBa) return;
     setBaSaving(true);
     try {
+      if (editingBa.isFirst) {
+        const otherPromises = beforeAfterItems
+          .filter(item => item.id !== editingBa.id && item.isFirst)
+          .map(item => updateDoc(doc(db, 'beforeAfter', item.id), { isFirst: false, adminCode: adminCode || '0107' }));
+        await Promise.all(otherPromises);
+      }
+
       await updateDoc(doc(db, 'beforeAfter', editingBa.id), {
         title: editingBa.title.trim(),
+        description: editingBa.description?.trim() || '',
         beforeUrl: editingBa.beforeUrl.trim(),
         afterUrl: editingBa.afterUrl.trim(),
+        altBefore: editingBa.altBefore?.trim() || '',
+        altAfter: editingBa.altAfter?.trim() || '',
+        tag: editingBa.tag?.trim() || '',
+        location: editingBa.location?.trim() || '',
+        isFirst: !!editingBa.isFirst,
+        order: editingBa.isFirst ? 0 : (typeof editingBa.order === 'number' ? editingBa.order : 0),
         adminCode: adminCode || '0107'
       });
       setFeedback({ message: "Comparaison Avant/Après enregistrée avec succès !", type: 'success' });
@@ -1825,22 +2083,11 @@ export default function Admin() {
               </div>
 
               <form onSubmit={handleBaUpload} className="space-y-4">
-                <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-white/50 mb-1.5">Titre de la réalisation</label>
-                  <input 
-                    type="text" 
-                    value={baTitle}
-                    onChange={(e) => setBaTitle(e.target.value)}
-                    placeholder="Ex: Rénovation Faux-Plafond Led"
-                    className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-amber-400"
-                    required
-                  />
-                </div>
-
+                {/* 1. Sélection des images */}
                 {!baIsUrlMode ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[10px] uppercase tracking-widest text-white/50 mb-1.5">Photo Avant</label>
+                      <label className="block text-[10px] uppercase tracking-widest text-white/50 mb-1.5">Photo Avant *</label>
                       <input 
                         type="file" 
                         ref={beforeInputRef}
@@ -1855,13 +2102,13 @@ export default function Admin() {
                       >
                         <ImagePlus className="w-4 h-4" />
                         <span className="truncate max-w-full text-[10px]">
-                          {beforeFile ? beforeFile.name : 'Choisir Avant'}
+                          {beforeFile ? beforeFile.name : 'Choisir Photo Avant'}
                         </span>
                       </button>
                     </div>
 
                     <div>
-                      <label className="block text-[10px] uppercase tracking-widest text-white/50 mb-1.5">Photo Après</label>
+                      <label className="block text-[10px] uppercase tracking-widest text-white/50 mb-1.5">Photo Après *</label>
                       <input 
                         type="file" 
                         ref={afterInputRef}
@@ -1876,7 +2123,7 @@ export default function Admin() {
                       >
                         <ImagePlus className="w-4 h-4" />
                         <span className="truncate max-w-full text-[10px]">
-                          {afterFile ? afterFile.name : 'Choisir Après'}
+                          {afterFile ? afterFile.name : 'Choisir Photo Après'}
                         </span>
                       </button>
                     </div>
@@ -1908,9 +2155,113 @@ export default function Admin() {
                   </div>
                 )}
 
+                {/* 2. Bouton d'Analyse & Génération IA */}
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={handleScanBaWithAi}
+                    disabled={baScanningAi || (!baIsUrlMode && (!beforeFile && !afterFile)) || (baIsUrlMode && (!baBeforeUrl.trim() && !baAfterUrl.trim()))}
+                    className="w-full py-2.5 px-3 bg-gradient-to-r from-amber-500/20 via-amber-400/25 to-amber-500/15 border border-amber-500/40 hover:border-amber-400 hover:bg-amber-500/30 text-amber-300 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 shadow-lg shadow-amber-500/5 active:scale-98"
+                  >
+                    {baScanningAi ? (
+                      <><Loader2 className="w-4 h-4 animate-spin text-amber-400" /> Analyse IA des photos en cours...</>
+                    ) : (
+                      <><Sparkles className="w-4 h-4 text-amber-400" /> Scanner & Générer Titre, Description & Balises SEO avec l'IA</>
+                    )}
+                  </button>
+                  <p className="text-[10px] text-white/40 mt-1 text-center">
+                    L'IA inspecte les photos, analyse la transformation et génère automatiquement le titre SEO, la description détaillée et les balises ALT !
+                  </p>
+                </div>
+
+                {/* Consignes optionnelles pour l'IA */}
+                <div className="p-3 bg-black/30 border border-white/5 rounded-xl space-y-1">
+                  <label className="block text-[9px] uppercase tracking-wider text-amber-300 font-mono">Consignes particulières pour l'IA (Optionnel)</label>
+                  <input
+                    type="text"
+                    value={baDirectives}
+                    onChange={(e) => setBaDirectives(e.target.value)}
+                    placeholder="Ex: Villa au Teich, faux-plafond suspendu avec 6 spots LED..."
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-[11px] text-white placeholder-white/30 focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                {/* 3. Titre de la réalisation */}
+                <div>
+                  <label className="block text-[10px] uppercase tracking-widest text-white/60 mb-1">Titre de la réalisation (SEO) *</label>
+                  <input 
+                    type="text" 
+                    value={baTitle}
+                    onChange={(e) => setBaTitle(e.target.value)}
+                    placeholder="Ex: Rénovation Faux-Plafond LED à Gujan-Mestras"
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-amber-400"
+                    required
+                  />
+                </div>
+
+                {/* Description détaillée */}
+                <div>
+                  <label className="block text-[10px] uppercase tracking-widest text-white/60 mb-1">Description de la transformation (SEO & Visiteurs)</label>
+                  <textarea 
+                    rows={3}
+                    value={baDescription}
+                    onChange={(e) => setBaDescription(e.target.value)}
+                    placeholder="Ex: Rénovation complète des surfaces avec pose de plaques BA13 acoustiques et lissage fin des bandes à joint..."
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white outline-none focus:border-amber-400 resize-none leading-relaxed"
+                  />
+                </div>
+
+                {/* Balises ALT SEO */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-widest text-white/60 mb-1">Balise ALT Photo Avant</label>
+                    <input 
+                      type="text" 
+                      value={baAltBefore}
+                      onChange={(e) => setBaAltBefore(e.target.value)}
+                      placeholder="Ex: État initial du plafond avant réfection"
+                      className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-amber-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-widest text-white/60 mb-1">Balise ALT Photo Après</label>
+                    <input 
+                      type="text" 
+                      value={baAltAfter}
+                      onChange={(e) => setBaAltAfter(e.target.value)}
+                      placeholder="Ex: Nouveau faux-plafond suspendu moderne"
+                      className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-amber-400"
+                    />
+                  </div>
+                </div>
+
+                {/* Type de travaux & Commune */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-widest text-white/60 mb-1">Type / Catégorie de travaux</label>
+                    <input 
+                      type="text" 
+                      value={baTag}
+                      onChange={(e) => setBaTag(e.target.value)}
+                      placeholder="Ex: Faux-Plafond & LED"
+                      className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-amber-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-widest text-white/60 mb-1">Commune (SEO Local)</label>
+                    <input 
+                      type="text" 
+                      value={baLocation}
+                      onChange={(e) => setBaLocation(e.target.value)}
+                      placeholder="Ex: Gujan-Mestras"
+                      className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-amber-400"
+                    />
+                  </div>
+                </div>
+
                 <button 
                   type="submit"
-                  disabled={baUploading || (!baIsUrlMode && (!beforeFile || !afterFile)) || (baIsUrlMode && (!baBeforeUrl.trim() || !baAfterUrl.trim())) || !baTitle}
+                  disabled={baUploading || (!baIsUrlMode && (!beforeFile || !afterFile)) || (baIsUrlMode && (!baBeforeUrl.trim() || !baAfterUrl.trim())) || !baTitle.trim()}
                   className="w-full bg-amber-500 text-black py-3 rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-amber-400 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer shadow-md active:scale-98"
                 >
                   {baUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Publier la comparaison'}
@@ -1923,46 +2274,129 @@ export default function Admin() {
                 Comparaisons Avant / Après ({beforeAfterItems.length})
               </h2>
 
-              {beforeAfterItems.length === 0 ? (
+              {sortedBaItems.length === 0 ? (
                 <div className="text-center py-10 text-white/40 text-xs sm:text-sm bg-black/20 rounded-xl border border-white/5">
                   Aucun avant/après enregistré.
                 </div>
               ) : (
-                <div className="space-y-4 max-h-[500px] overflow-y-auto pr-1">
-                  {beforeAfterItems.map(item => (
-                    <div key={item.id} className="bg-black/40 border border-white/10 rounded-2xl p-4 relative group animate-fade-in">
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-xs sm:text-sm font-semibold text-white truncate mr-2">{item.title}</h3>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <button 
-                            onClick={() => handleStartEditBa(item)}
-                            className="p-1.5 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 rounded-lg transition-colors cursor-pointer"
-                            title="Modifier"
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                          </button>
-                          <button 
-                            onClick={() => handleDeleteBa(item.id)}
-                            className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
-                            title="Supprimer"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
+                <div className="space-y-4 max-h-[600px] overflow-y-auto pr-1">
+                  {sortedBaItems.map((item, idx) => {
+                    const isVedette = item.isFirst || idx === 0;
+                    return (
+                      <div 
+                        key={item.id} 
+                        className={`bg-black/40 border rounded-2xl p-4 relative group animate-fade-in transition-all ${
+                          isVedette 
+                            ? 'border-amber-500/50 shadow-lg shadow-amber-500/5 bg-gradient-to-br from-amber-500/[0.04] to-transparent' 
+                            : 'border-white/10 hover:border-amber-500/30'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="mr-2">
+                            <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
+                              {/* Position Badge */}
+                              <span className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold uppercase tracking-wider ${
+                                isVedette
+                                  ? 'bg-amber-400 text-black shadow-sm'
+                                  : 'bg-white/10 text-white/70'
+                              }`}>
+                                {isVedette ? '⭐ Position #1 • Vedette' : `Position #${idx + 1}`}
+                              </span>
 
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="relative rounded-xl overflow-hidden aspect-video border border-white/10">
-                          <img src={item.beforeUrl || null} alt="Avant" className="w-full h-full object-cover" />
-                          <span className="absolute bottom-1.5 left-1.5 bg-black/70 px-2 py-0.5 rounded text-[9px] uppercase font-mono tracking-wider">Avant</span>
+                              {item.tag && (
+                                <span className="px-2 py-0.5 bg-amber-500/10 text-amber-300 rounded text-[9px] font-mono uppercase tracking-wider">
+                                  {item.tag}
+                                </span>
+                              )}
+                              {item.location && (
+                                <span className="px-2 py-0.5 bg-white/5 text-white/60 rounded text-[9px] font-mono">
+                                  {item.location}
+                                </span>
+                              )}
+                            </div>
+                            <h3 className="text-xs sm:text-sm font-semibold text-white truncate">{item.title}</h3>
+                            {item.description && (
+                              <p className="text-[11px] text-white/60 line-clamp-2 mt-0.5 leading-relaxed">{item.description}</p>
+                            )}
+                          </div>
+
+                          {/* Quick action buttons: Up, Down, Edit, Delete */}
+                          <div className="flex items-center gap-1 shrink-0">
+                            {/* Reorder Up */}
+                            <button
+                              type="button"
+                              onClick={() => handleMoveBaUp(idx)}
+                              disabled={idx === 0}
+                              className="p-1.5 bg-white/5 hover:bg-amber-500 hover:text-black text-white/70 rounded-lg border border-white/10 transition-colors disabled:opacity-20 disabled:pointer-events-none cursor-pointer"
+                              title="Déplacer vers le haut"
+                            >
+                              <ArrowUp className="w-3.5 h-3.5" />
+                            </button>
+
+                            {/* Reorder Down */}
+                            <button
+                              type="button"
+                              onClick={() => handleMoveBaDown(idx)}
+                              disabled={idx === sortedBaItems.length - 1}
+                              className="p-1.5 bg-white/5 hover:bg-amber-500 hover:text-black text-white/70 rounded-lg border border-white/10 transition-colors disabled:opacity-20 disabled:pointer-events-none cursor-pointer"
+                              title="Déplacer vers le bas"
+                            >
+                              <ArrowDown className="w-3.5 h-3.5" />
+                            </button>
+
+                            <button 
+                              onClick={() => handleStartEditBa(item)}
+                              className="p-1.5 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 rounded-lg transition-colors cursor-pointer"
+                              title="Modifier / Réanalyser avec l'IA"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteBa(item.id)}
+                              className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
+                              title="Supprimer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
-                        <div className="relative rounded-xl overflow-hidden aspect-video border border-white/10">
-                          <img src={item.afterUrl || null} alt="Après" className="w-full h-full object-cover" />
-                          <span className="absolute bottom-1.5 left-1.5 bg-amber-500 text-black px-2 py-0.5 rounded text-[9px] uppercase font-mono tracking-wider font-bold">Après</span>
+
+                        <div className="grid grid-cols-2 gap-3 mt-3">
+                          <div className="relative rounded-xl overflow-hidden aspect-video border border-white/10 bg-black/60">
+                            <img src={item.beforeUrl || null} alt={item.altBefore || "Avant"} className="w-full h-full object-cover" />
+                            <span className="absolute bottom-1.5 left-1.5 bg-black/70 px-2 py-0.5 rounded text-[9px] uppercase font-mono tracking-wider text-white/80">Avant</span>
+                          </div>
+                          <div className="relative rounded-xl overflow-hidden aspect-video border border-white/10 bg-black/60">
+                            <img src={item.afterUrl || null} alt={item.altAfter || "Après"} className="w-full h-full object-cover" />
+                            <span className="absolute bottom-1.5 left-1.5 bg-amber-500 text-black px-2 py-0.5 rounded text-[9px] uppercase font-mono tracking-wider font-bold">Après</span>
+                          </div>
+                        </div>
+
+                        {/* Card bottom bar with 'Mettre en 1er' action */}
+                        <div className="mt-3 pt-2.5 border-t border-white/5 flex items-center justify-between gap-2 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() => handleSetFirstBa(item.id)}
+                            className={`text-[10px] font-mono uppercase tracking-wider flex items-center gap-1.5 cursor-pointer py-1 px-2.5 rounded-lg border transition-all ${
+                              isVedette
+                                ? "bg-amber-500/20 border-amber-500/40 text-amber-300 font-bold"
+                                : "bg-white/5 border-white/10 text-white/50 hover:text-amber-300 hover:border-amber-400/30"
+                            }`}
+                            title="Choisir ce projet pour qu'il s'affiche en premier aux visiteurs"
+                          >
+                            <Star className={`w-3.5 h-3.5 ${isVedette ? "fill-amber-400 text-amber-400" : "text-white/40"}`} />
+                            <span>{isVedette ? "⭐ Affiché en 1er" : "Mettre en 1er"}</span>
+                          </button>
+
+                          {(item.altBefore || item.altAfter) && (
+                            <div className="text-[9px] font-mono text-white/40 truncate max-w-[240px]">
+                              {item.altAfter ? `ALT: ${item.altAfter}` : `ALT: ${item.altBefore}`}
+                            </div>
+                          )}
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -2805,13 +3239,13 @@ export default function Admin() {
             animate={{ opacity: 1, scale: 1 }}
             className="bg-[#141414] border border-white/15 p-5 sm:p-7 rounded-2xl sm:rounded-3xl max-w-2xl w-full shadow-2xl max-h-[92vh] overflow-y-auto"
           >
-            <div className="flex items-center justify-between mb-5 border-b border-white/10 pb-3">
+            <div className="flex items-center justify-between mb-4 border-b border-white/10 pb-3">
               <div>
                 <h3 className="text-base sm:text-lg font-semibold text-white flex items-center gap-2">
-                  <Edit3 className="w-4 h-4 text-amber-400" />
-                  Modifier la comparaison Avant / Après
+                  <Sparkles className="w-4 h-4 text-amber-400" />
+                  Modifier & Analyser la comparaison Avant / Après
                 </h3>
-                <p className="text-xs text-white/50">Modifiez le titre de la réalisation ou mettez à jour les liens de vos photos.</p>
+                <p className="text-xs text-white/50">Mettez à jour le titre, la description, les balises SEO ou relancez l'analyse IA.</p>
               </div>
               <button 
                 onClick={() => setEditingBa(null)}
@@ -2821,9 +3255,53 @@ export default function Admin() {
               </button>
             </div>
 
+            {/* AI Re-analysis Bar */}
+            <div className="bg-amber-500/10 border border-amber-500/25 rounded-2xl p-3.5 mb-4 space-y-2">
+              <div className="flex flex-col sm:flex-row items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={handleReanalyzeBa}
+                  disabled={baReanalyzing}
+                  className="w-full sm:w-auto px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-xl text-xs uppercase tracking-wider transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-md shrink-0"
+                >
+                  {baReanalyzing ? (
+                    <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Analyse IA en cours...</>
+                  ) : (
+                    <><Sparkles className="w-3.5 h-3.5" /> Réanalyser avec l'IA</>
+                  )}
+                </button>
+                <div className="w-full flex-1">
+                  <input
+                    type="text"
+                    value={baReanalyzeDirectives}
+                    onChange={(e) => setBaReanalyzeDirectives(e.target.value)}
+                    placeholder="Consignes IA optionnelles (ex: insister sur les spots LED intégrés au Teich...)"
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-1.5 text-[11px] text-white placeholder-white/40 focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+              </div>
+            </div>
+
             <form onSubmit={handleSaveEditBa} className="space-y-4">
+              {/* Option Vedette / Affiché en premier */}
+              <label className="flex items-center gap-3 p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl cursor-pointer hover:bg-amber-500/15 transition-colors">
+                <input 
+                  type="checkbox"
+                  checked={!!editingBa.isFirst}
+                  onChange={(e) => setEditingBa({ ...editingBa, isFirst: e.target.checked })}
+                  className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
+                />
+                <div>
+                  <span className="text-xs font-semibold text-amber-300 block flex items-center gap-1.5">
+                    <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                    Afficher ce projet en 1er (Projet Vedette)
+                  </span>
+                  <span className="text-[10px] text-white/50 block">Ce projet sera affiché en tout premier dans le diaporama pour les visiteurs du site.</span>
+                </div>
+              </label>
+
               <div>
-                <label className="block text-[10px] uppercase tracking-widest text-white/60 mb-1">Titre de la réalisation *</label>
+                <label className="block text-[10px] uppercase tracking-widest text-white/60 mb-1">Titre de la réalisation (SEO) *</label>
                 <input 
                   type="text" 
                   required
@@ -2832,6 +3310,63 @@ export default function Admin() {
                   placeholder="Ex: Rénovation de faux-plafond suspendu - Audenge"
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-400"
                 />
+              </div>
+
+              <div>
+                <label className="block text-[10px] uppercase tracking-widest text-white/60 mb-1">Description de la transformation (SEO & Visiteurs)</label>
+                <textarea 
+                  rows={3}
+                  value={editingBa.description || ''} 
+                  onChange={(e) => setEditingBa({ ...editingBa, description: e.target.value })}
+                  placeholder="Description détaillée de la transformation et du travail artisanal..."
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-amber-400 resize-none leading-relaxed"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] uppercase tracking-widest text-white/60 mb-1">Balise ALT Photo Avant</label>
+                  <input 
+                    type="text" 
+                    value={editingBa.altBefore || ''} 
+                    onChange={(e) => setEditingBa({ ...editingBa, altBefore: e.target.value })}
+                    placeholder="Ex: Pièce avant rénovation"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase tracking-widest text-white/60 mb-1">Balise ALT Photo Après</label>
+                  <input 
+                    type="text" 
+                    value={editingBa.altAfter || ''} 
+                    onChange={(e) => setEditingBa({ ...editingBa, altAfter: e.target.value })}
+                    placeholder="Ex: Résultat après pose faux-plafond"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] uppercase tracking-widest text-white/60 mb-1">Type de travaux</label>
+                  <input 
+                    type="text" 
+                    value={editingBa.tag || ''} 
+                    onChange={(e) => setEditingBa({ ...editingBa, tag: e.target.value })}
+                    placeholder="Ex: Faux-Plafond & LED"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase tracking-widest text-white/60 mb-1">Commune (SEO Local)</label>
+                  <input 
+                    type="text" 
+                    value={editingBa.location || ''} 
+                    onChange={(e) => setEditingBa({ ...editingBa, location: e.target.value })}
+                    placeholder="Ex: Gujan-Mestras"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
@@ -2854,7 +3389,7 @@ export default function Admin() {
                   </div>
                   <div className="pt-1">
                     <input 
-                      type="file"
+                      type="file" 
                       id="edit-ba-before-file"
                       accept="image/*"
                       className="hidden"
@@ -2900,7 +3435,7 @@ export default function Admin() {
                   </div>
                   <div className="pt-1">
                     <input 
-                      type="file"
+                      type="file" 
                       id="edit-ba-after-file"
                       accept="image/*"
                       className="hidden"
@@ -2938,7 +3473,7 @@ export default function Admin() {
                 </button>
                 <button 
                   type="submit"
-                  disabled={baSaving}
+                  disabled={baSaving || baReanalyzing}
                   className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-xl text-xs uppercase tracking-wider transition-colors flex items-center gap-2 cursor-pointer disabled:opacity-50 shadow-md"
                 >
                   {baSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}

@@ -140,7 +140,7 @@ RÈGLE DE FORMATAGE ABSOLUE POUR ÉVITER LES ERREURS JSON :
         for (let i = 0; i < attempts; i++) {
           try {
             response = await ai.models.generateContent({
-              model: "gemini-3.5-flash",
+              model: "gemini-3.8-flash",
               contents: {
                 parts: [
                   {
@@ -197,6 +197,208 @@ RÈGLE DE FORMATAGE ABSOLUE POUR ÉVITER LES ERREURS JSON :
       res.status(500).json({ 
         error: "Erreur interne lors du traitement de l'image." 
       });
+    }
+  });
+
+  // Dedicated AI analyzer for Before / After project transformations
+  app.post("/api/generate-before-after-metadata", async (req, res) => {
+    try {
+      const { 
+        beforeBase64, 
+        beforeUrl, 
+        afterBase64, 
+        afterUrl, 
+        userDirectives 
+      } = req.body;
+
+      // Helper to convert base64 or URL into raw base64 data for Gemini
+      async function resolveImage(base64?: string, url?: string) {
+        if (base64 && base64.startsWith("data:")) {
+          const match = base64.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,/);
+          return {
+            mimeType: match ? match[1] : "image/jpeg",
+            base64Data: base64.replace(/^data:[^;]+;base64,/, "")
+          };
+        }
+        if (url && typeof url === 'string') {
+          try {
+            let targetUrl = url;
+            if (url.startsWith('/')) {
+              targetUrl = `http://localhost:${PORT}${url}`;
+            }
+            const fetchRes = await fetch(targetUrl);
+            if (fetchRes.ok) {
+              const buffer = await fetchRes.arrayBuffer();
+              const contentType = fetchRes.headers.get("content-type") || "image/jpeg";
+              return {
+                mimeType: contentType,
+                base64Data: Buffer.from(buffer).toString("base64")
+              };
+            }
+          } catch (e) {
+            console.warn("Could not fetch image URL for BA metadata:", url, e);
+          }
+        }
+        return null;
+      }
+
+      const beforeData = await resolveImage(beforeBase64, beforeUrl);
+      const afterData = await resolveImage(afterBase64, afterUrl);
+
+      if (!beforeData && !afterData) {
+        return res.status(400).json({ error: "Veuillez fournir au moins une image (Avant ou Après)." });
+      }
+
+      const cities = ["Le Teich", "Gujan-Mestras", "Biganos", "Audenge", "La Teste-de-Buch", "Mios", "Arcachon", "Lanton", "Salles"];
+      const targetCity = cities[Math.floor(Math.random() * cities.length)];
+
+      const fallbackTemplates = [
+        {
+          title: `Transformation complète d'intérieur à ${targetCity}`,
+          description: `Rénovation soignée des cloisons et plafonds avec isolation renforcée et finitions prêtes à peindre à ${targetCity}. Réalisé par Yohann Bouey (Parat & Bouey).`,
+          altBefore: `Pièce avant travaux de rénovation et plâtrerie à ${targetCity}`,
+          altAfter: `Transformation réussie avec cloisons lisses et faux-plafond à ${targetCity}`,
+          tag: "Rénovation Intérieure",
+          location: targetCity
+        },
+        {
+          title: `Rénovation faux-plafond & isolation à ${targetCity}`,
+          description: `Reprise totale du plafond avec intégration de spots lumineux et doublage isolant acoustique à ${targetCity}. Finition soignée par l'artisan Yohann Bouey.`,
+          altBefore: `Plafond ancien avant réfection et doublage à ${targetCity}`,
+          altAfter: `Nouveau faux-plafond suspendu et lisse à ${targetCity}`,
+          tag: "Faux-Plafond & Isolation",
+          location: targetCity
+        },
+        {
+          title: `Aménagement d'espace et cloisons séparatives à ${targetCity}`,
+          description: `Création de volumes optimisés et cloisons de distribution en plaques de plâtre BA13 avec bandes à joint soignées à ${targetCity}.`,
+          altBefore: `Espace brut avant montage des cloisons placo à ${targetCity}`,
+          altAfter: `Pièce aménagée avec cloisons blanches finies à ${targetCity}`,
+          tag: "Aménagement d'Espace",
+          location: targetCity
+        },
+        {
+          title: `Réhabilitation après sinistre ou dégât des eaux à ${targetCity}`,
+          description: `Dépose des parties dégradées, assainissement, pose de plaques hydrofuges et enduisage minutieux à ${targetCity} par Yohann Bouey.`,
+          altBefore: `Murs et plafonds dégradés avant intervention après sinistre à ${targetCity}`,
+          altAfter: `Pièce entièrement assainie et rénovée prête pour peinture à ${targetCity}`,
+          tag: "Dégât des Eaux",
+          location: targetCity
+        }
+      ];
+
+      const fallback = fallbackTemplates[Math.floor(Math.random() * fallbackTemplates.length)];
+
+      let directivesText = "";
+      if (userDirectives && typeof userDirectives === "string" && userDirectives.trim()) {
+        directivesText = `\nCONSIGNES PARTICULIÈRES DE L'UTILISATEUR (YOHANN BOUEY) :
+- ${userDirectives.trim()}\n`;
+      }
+
+      if (apiKey) {
+        const parts: any[] = [];
+        if (beforeData) {
+          parts.push({
+            inlineData: {
+              data: beforeData.base64Data,
+              mimeType: beforeData.mimeType
+            }
+          });
+        }
+        if (afterData) {
+          parts.push({
+            inlineData: {
+              data: afterData.base64Data,
+              mimeType: afterData.mimeType
+            }
+          });
+        }
+
+        const prompt = `Tu es Yohann Bouey, artisan plâtrier-plaquiste chevronné et gérant de l'entreprise artisanale "Parat & Bouey", basée sur le Bassin d'Arcachon.
+Tu analyses ${beforeData && afterData ? "ces deux photos (Photo 1 = AVANT travaux, Photo 2 = APRÈS transformation)" : "cette photo de chantier"} pour générer un contenu SEO percutant, professionnel et géolocalisé pour la section "Avant / Après" du site.
+
+${directivesText}
+
+RÈGLE DE SEO LOCAL :
+Intègre impérativement la commune suivante dans le titre, la description et les balises ALT : "${targetCity}".
+
+OBJECTIFS D'ANALYSE TECHNIQUE :
+1. Titre SEO (40 à 70 caractères) :
+   - Nomme explicitement la pièce ou l'ouvrage transformé (ex: "Rénovation de faux-plafond LED à ${targetCity}", "Transformation d'un garage en bureau à ${targetCity}", "Pose de cloisons BA13 et isolation à ${targetCity}").
+2. Description détaillée (130 à 250 caractères) :
+   - Décris la transformation concrète : contraste entre l'état initial (brut, abîmé, non isolé) et le résultat final (surfaces lisses, bandes invisibles, isolation thermique/acoustique, finitions soignées par Yohann Bouey à ${targetCity}).
+3. Balise ALT Photo Avant (45 à 100 caractères) :
+   - Décrit fidèlement l'état initial avant travaux à ${targetCity}.
+4. Balise ALT Photo Après (45 à 100 caractères) :
+   - Décrit fidèlement le résultat final soigné à ${targetCity}.
+5. Tag (1 à 3 mots) :
+   - Catégorie de travaux (ex: "Faux-Plafond & LED", "Rénovation Intérieure", "Isolation & Placo", "Aménagement Combles", "Dégât des Eaux").
+6. Commune :
+   - "${targetCity}".
+
+RÈGLE DE FORMATAGE ABSOLUE POUR ÉVITER LES ERREURS JSON :
+- Ne mets JAMAIS de guillemets doubles (") à l'intérieur de tes textes. Utilise des apostrophes (') ou guillemets français (« »).
+- Réponds STRICTEMENT en JSON :
+{
+  "title": "Titre précis",
+  "description": "Description technique et valorisante",
+  "altBefore": "Texte alternatif photo Avant",
+  "altAfter": "Texte alternatif photo Après",
+  "tag": "Catégorie",
+  "location": "${targetCity}"
+}`;
+
+        parts.push({ text: prompt });
+
+        let response = null;
+        let attempts = 3;
+        for (let i = 0; i < attempts; i++) {
+          try {
+            response = await ai.models.generateContent({
+              model: "gemini-3.8-flash",
+              contents: {
+                parts
+              },
+              config: {
+                responseMimeType: "application/json",
+                temperature: 0.4
+              }
+            });
+            break;
+          } catch (geminiErr: any) {
+            console.warn(`[Gemini BA API] Attempt ${i + 1} failed:`, geminiErr?.message || geminiErr);
+            if (i === attempts - 1) {
+              return res.json(fallback);
+            }
+            await new Promise(r => setTimeout(r, 1000));
+          }
+        }
+
+        const text = response?.text;
+        if (text) {
+          try {
+            const cleanText = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+            const parsed = JSON.parse(cleanText);
+            if (parsed && (parsed.title || parsed.description)) {
+              return res.json({
+                title: parsed.title || fallback.title,
+                description: parsed.description || fallback.description,
+                altBefore: parsed.altBefore || fallback.altBefore,
+                altAfter: parsed.altAfter || fallback.altAfter,
+                tag: parsed.tag || fallback.tag,
+                location: parsed.location || fallback.location
+              });
+            }
+          } catch (e) {
+            console.warn("[Gemini BA API] Parse warning:", e);
+          }
+        }
+      }
+
+      return res.json(fallback);
+    } catch (err: any) {
+      console.warn("Before/After metadata handler error:", err?.message || err);
+      res.status(500).json({ error: "Erreur interne lors de l'analyse Avant/Après." });
     }
   });
 
