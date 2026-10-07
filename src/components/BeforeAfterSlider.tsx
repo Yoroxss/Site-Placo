@@ -6,9 +6,10 @@ interface BeforeAfterSliderProps {
   afterImage: string;
   altBefore?: string;
   altAfter?: string;
+  onDragStateChange?: (isDragging: boolean) => void;
 }
 
-export default function BeforeAfterSlider({ beforeImage, afterImage, altBefore, altAfter }: BeforeAfterSliderProps) {
+export default function BeforeAfterSlider({ beforeImage, afterImage, altBefore, altAfter, onDragStateChange }: BeforeAfterSliderProps) {
   const [sliderPosition, setSliderPosition] = useState(50);
   const containerRef = useRef<HTMLDivElement>(null);
   const rectRef = useRef<DOMRect | null>(null);
@@ -38,11 +39,15 @@ export default function BeforeAfterSlider({ beforeImage, afterImage, altBefore, 
       rectRef.current = containerRef.current.getBoundingClientRect();
     }
     setIsDragging(true);
+    onDragStateChange?.(true);
     handleMove(clientX);
   };
 
   const endDrag = () => {
-    setIsDragging(false);
+    if (isDragging) {
+      setIsDragging(false);
+      onDragStateChange?.(false);
+    }
     rectRef.current = null;
     lastInteractionTime.current = Date.now();
   };

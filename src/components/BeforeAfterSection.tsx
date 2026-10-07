@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronLeft, ChevronRight, LayoutGrid, SlidersHorizontal, MapPin, Tag } from 'lucide-react';
+import { ChevronLeft, ChevronRight, LayoutGrid, SlidersHorizontal, MapPin, Tag, Play, Pause } from 'lucide-react';
 import BeforeAfterSlider from './BeforeAfterSlider';
 
 export interface BeforeAfterItem {
@@ -25,17 +25,61 @@ export default function BeforeAfterSection({ items }: BeforeAfterSectionProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [viewMode, setViewMode] = useState<'diapo' | 'grid'>('diapo');
 
+  // Auto-scroll states
+  const [isSliderDragging, setIsSliderDragging] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const [isPausedByUser, setIsPausedByUser] = useState(false);
+  const [progress, setProgress] = useState(0);
+
   if (!items || items.length === 0) return null;
 
   const safeIndex = Math.min(Math.max(0, currentIndex), items.length - 1);
   const currentItem = items[safeIndex] || items[0];
 
+  const isPaused = isSliderDragging || isHovered || isPausedByUser;
+
+  // Auto-advance every 4 seconds when in diaporama mode and not paused
+  useEffect(() => {
+    if (viewMode !== 'diapo' || items.length <= 1) {
+      setProgress(0);
+      return;
+    }
+
+    if (isPaused) {
+      setProgress(0);
+      return;
+    }
+
+    const intervalTime = 50; // 50ms ticks for smooth progress bar
+    const totalDuration = 4000; // 4 seconds
+    const increment = (intervalTime / totalDuration) * 100;
+
+    const timer = setInterval(() => {
+      setProgress((prev) => {
+        if (prev + increment >= 100) {
+          setCurrentIndex((curr) => (curr >= items.length - 1 ? 0 : curr + 1));
+          return 0;
+        }
+        return prev + increment;
+      });
+    }, intervalTime);
+
+    return () => clearInterval(timer);
+  }, [viewMode, items.length, isPaused]);
+
   const handlePrev = () => {
+    setProgress(0);
     setCurrentIndex((prev) => (prev <= 0 ? items.length - 1 : prev - 1));
   };
 
   const handleNext = () => {
+    setProgress(0);
     setCurrentIndex((prev) => (prev >= items.length - 1 ? 0 : prev + 1));
+  };
+
+  const handleSelectIndex = (idx: number) => {
+    setProgress(0);
+    setCurrentIndex(idx);
   };
 
   return (
@@ -98,7 +142,7 @@ export default function BeforeAfterSection({ items }: BeforeAfterSectionProps) {
           <div className="relative">
             {/* Top Navigation Bar with Counter & Arrow Controls */}
             {items.length > 1 && (
-              <div className="flex items-center justify-between mb-6 px-2">
+              <div className="flex items-center justify-between mb-4 px-2">
                 <div className="flex items-center gap-2">
                   <span className="px-3 py-1 bg-white/10 border border-white/10 text-amber-300 rounded-full text-xs font-mono tracking-wider">
                     {safeIndex + 1} / {items.length}
@@ -115,10 +159,39 @@ export default function BeforeAfterSection({ items }: BeforeAfterSectionProps) {
                       {currentItem.location}
                     </span>
                   )}
+
+                  {/* 4s Auto-scroll & Pause Status Badge */}
+                  <div className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono transition-all border border-white/10 bg-white/5">
+                    {isPaused ? (
+                      <span className="flex items-center gap-1 text-amber-300 font-semibold">
+                        <Pause className="w-2.5 h-2.5" />
+                        <span>{isSliderDragging ? 'Curseur actif • En pause' : isHovered ? 'Survol • En pause' : 'Défilement en pause'}</span>
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-white/60">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        <span>Défilement auto 4s</span>
+                      </span>
+                    )}
+                  </div>
                 </div>
 
-                {/* Arrow Controls */}
+                {/* Controls: Play/Pause toggle + Prev/Next Arrows */}
                 <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsPausedByUser(!isPausedByUser)}
+                    aria-label={isPausedByUser ? "Reprendre le défilement automatique (4s)" : "Mettre en pause le défilement automatique"}
+                    className={`p-2.5 rounded-full border transition-all cursor-pointer shadow-lg active:scale-95 ${
+                      isPausedByUser 
+                        ? 'bg-amber-500/20 border-amber-400/40 text-amber-300' 
+                        : 'bg-white/5 hover:bg-white/10 border-white/10 text-white/70 hover:text-white'
+                    }`}
+                    title={isPausedByUser ? "Reprendre le défilement automatique (4s)" : "Mettre en pause"}
+                  >
+                    {isPausedByUser ? <Play className="w-3.5 h-3.5 fill-amber-400" /> : <Pause className="w-3.5 h-3.5" />}
+                  </button>
+
                   <button
                     type="button"
                     onClick={handlePrev}
@@ -136,6 +209,21 @@ export default function BeforeAfterSection({ items }: BeforeAfterSectionProps) {
                     <ChevronRight className="w-4 h-4 md:w-5 md:h-5" />
                   </button>
                 </div>
+              </div>
+            )}
+
+            {/* 4-Second Animated Progress Bar */}
+            {items.length > 1 && (
+              <div 
+                className="w-full h-1 bg-white/10 rounded-full overflow-hidden mb-6"
+                title={isPaused ? "Défilement en pause" : "Progression avant la prochaine réalisation (4s)"}
+              >
+                <div 
+                  className={`h-full transition-all duration-75 rounded-full ${
+                    isPaused ? 'bg-amber-400/40' : 'bg-amber-400'
+                  }`}
+                  style={{ width: `${isPaused ? 0 : progress}%` }}
+                />
               </div>
             )}
 
@@ -164,13 +252,20 @@ export default function BeforeAfterSection({ items }: BeforeAfterSectionProps) {
                   )}
                 </div>
 
-                {/* The Slider */}
-                <div className="w-full">
+                {/* The Slider with hover and drag listeners to pause auto-scroll */}
+                <div 
+                  className="w-full"
+                  onMouseEnter={() => setIsHovered(true)}
+                  onMouseLeave={() => setIsHovered(false)}
+                  onTouchStart={() => setIsHovered(true)}
+                  onTouchEnd={() => setIsHovered(false)}
+                >
                   <BeforeAfterSlider
                     beforeImage={currentItem.beforeUrl}
                     afterImage={currentItem.afterUrl}
                     altBefore={currentItem.altBefore}
                     altAfter={currentItem.altAfter}
+                    onDragStateChange={(dragging) => setIsSliderDragging(dragging)}
                   />
                 </div>
               </motion.div>
@@ -185,7 +280,7 @@ export default function BeforeAfterSection({ items }: BeforeAfterSectionProps) {
                     <button
                       key={idx}
                       type="button"
-                      onClick={() => setCurrentIndex(idx)}
+                      onClick={() => handleSelectIndex(idx)}
                       aria-label={`Aller au projet ${idx + 1}`}
                       className={`h-2 transition-all rounded-full cursor-pointer ${
                         safeIndex === idx ? 'w-8 bg-amber-400' : 'w-2 bg-white/20 hover:bg-white/40'
@@ -202,7 +297,7 @@ export default function BeforeAfterSection({ items }: BeforeAfterSectionProps) {
                       <button
                         key={item.id || idx}
                         type="button"
-                        onClick={() => setCurrentIndex(idx)}
+                        onClick={() => handleSelectIndex(idx)}
                         className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl border text-xs transition-all cursor-pointer text-left ${
                           isSelected
                             ? 'bg-white/10 border-amber-400/60 text-white shadow-lg shadow-amber-500/10'
