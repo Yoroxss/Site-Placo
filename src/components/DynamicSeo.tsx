@@ -217,6 +217,14 @@ export default function DynamicSeo() {
               "name": "Protection SAS anti-poussière",
               "description": "Extraction en dépression pour la préservation de la propreté de l'habitat."
             }
+          },
+          {
+            "@type": "Offer",
+            "itemOffered": {
+              "@type": "Service",
+              "name": "Isolation thermique intérieure (ITI) et combles",
+              "description": "Doublage thermique des murs froids, isolation sous rampants et traitement de l'humidité maritime."
+            }
           }
         ]
       },
@@ -227,9 +235,10 @@ export default function DynamicSeo() {
         "Bibliothèques et agencements sur-mesure",
         "Plâtre traditionnel",
         "Plafonnage et réparation de plafonds en lattis",
-        "Isolation acoustique du sol",
+        "Isolation thermique intérieure ITI",
+        "Isolation phonique et acoustique",
         "Système de protection SAS anti-poussière",
-        "Rénovation intérieure et peinture"
+        "Rénovation intérieure et faux-plafonds LED"
       ]
     });
 

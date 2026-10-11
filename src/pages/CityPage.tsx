@@ -10,17 +10,129 @@ import { motion } from 'motion/react';
 import { ShieldCheck, Wind, Ruler, ArrowLeft, FileText, ImageIcon, Home } from 'lucide-react';
 import { useEffect } from 'react';
 
+const CITY_METADATA: Record<string, { name: string; postalCode: string; lat: number; lng: number }> = {
+  'le-teich': { name: 'Le Teich', postalCode: '33470', lat: 44.6322, lng: -1.0894 },
+  'gujan-mestras': { name: 'Gujan-Mestras', postalCode: '33470', lat: 44.6358, lng: -1.1444 },
+  'biganos': { name: 'Biganos', postalCode: '33380', lat: 44.6436, lng: -0.9786 },
+  'audenge': { name: 'Audenge', postalCode: '33980', lat: 44.6853, lng: -1.0142 },
+  'la-teste-de-buch': { name: 'La Teste-de-Buch', postalCode: '33260', lat: 44.6308, lng: -1.1469 },
+  'mios': { name: 'Mios', postalCode: '33380', lat: 44.6053, lng: -0.9386 },
+  'arcachon': { name: 'Arcachon', postalCode: '33120', lat: 44.6586, lng: -1.1644 },
+  'lanton': { name: 'Lanton', postalCode: '33138', lat: 44.7042, lng: -1.0361 },
+  'salles': { name: 'Salles', postalCode: '33770', lat: 44.5511, lng: -0.8711 },
+};
+
 export default function CityPage() {
   const { city } = useParams();
   
-  // Format city name for display (e.g., "gujan-mestras" -> "Gujan-Mestras")
-  const formattedCity = city 
-    ? city.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join('-')
-    : 'Bassin d\'Arcachon';
+  const currentSlug = (city || 'le-teich').toLowerCase();
+  const cityInfo = CITY_METADATA[currentSlug] || {
+    name: city ? city.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join('-') : 'Bassin d\'Arcachon',
+    postalCode: '33470',
+    lat: 44.6322,
+    lng: -1.0894
+  };
+
+  const formattedCity = cityInfo.name;
 
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [city]);
+
+  const localSchema = [
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Accueil",
+          "item": "https://www.plaquiste-arcachon.fr/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Zone d'Intervention",
+          "item": "https://www.plaquiste-arcachon.fr/#zone-intervention"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": `Artisan Plâtrier Plaquiste à ${formattedCity}`,
+          "item": `https://www.plaquiste-arcachon.fr/artisan-plaquiste/${currentSlug}`
+        }
+      ]
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": ["LocalBusiness", "HomeAndConstructionBusiness"],
+      "name": `Parat & Bouey - Artisan Plâtrier Plaquiste à ${formattedCity}`,
+      "legalName": "Parat & Bouey",
+      "founder": {
+        "@type": "Person",
+        "name": "Yohann Bouey",
+        "jobTitle": "Gérant & Artisan Plâtrier-Plaquiste",
+        "description": "Formé en 2009, plus de 15 ans d'expérience métier continue (depuis 2010)."
+      },
+      "telephone": "+33672159399",
+      "url": `https://www.plaquiste-arcachon.fr/artisan-plaquiste/${currentSlug}`,
+      "priceRange": "€€",
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": formattedCity,
+        "postalCode": cityInfo.postalCode,
+        "addressRegion": "Gironde",
+        "addressCountry": "FR"
+      },
+      "geo": {
+        "@type": "GeoCoordinates",
+        "latitude": cityInfo.lat,
+        "longitude": cityInfo.lng
+      },
+      "areaServed": {
+        "@type": "AdministrativeArea",
+        "name": formattedCity
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "5.0",
+        "reviewCount": "12",
+        "bestRating": "5",
+        "worstRating": "1"
+      }
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": `Quel est le délai pour obtenir un devis de plâtrerie ou placo à ${formattedCity} ?`,
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": `Parat & Bouey se déplace sous 24h à 48h à ${formattedCity} pour examiner votre chantier et vous remet un devis gratuit et détaillé sous 48 heures.`
+          }
+        },
+        {
+          "@type": "Question",
+          "name": `Comment protégez-vous mon logement lors des travaux de placo à ${formattedCity} ?`,
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": `Nous mettons en place un protocole exclusif de SAS anti-poussière sous dépression pour préserver vos meubles et sols de toute poussière volatile.`
+          }
+        },
+        {
+          "@type": "Question",
+          "name": `Quelles sont vos garanties pour les travaux réalisés à ${formattedCity} ?`,
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": `Tous nos chantiers bénéficient de la Garantie Décennale et de la Responsabilité Civile Professionnelle souscrites chez Orus, avec plus de 15 ans d'expérience métier continue de notre artisan Yohann Bouey.`
+          }
+        }
+      ]
+    }
+  ];
 
   return (
     <>
@@ -30,11 +142,14 @@ export default function CityPage() {
           name="description" 
           content={`Artisan plâtrier et plaquiste jointeur à ${formattedCity}. Formé en 2009, plus de 15 ans d'expérience métier continue (depuis 2010). Plâtrerie traditionnelle, placo, bandes et isolation. Devis gratuit au 06 72 15 93 99.`} 
         />
-        <link rel="canonical" href={`https://www.plaquiste-arcachon.fr/artisan-plaquiste/${city || 'le-teich'}`} />
+        <link rel="canonical" href={`https://www.plaquiste-arcachon.fr/artisan-plaquiste/${currentSlug}`} />
         <meta property="og:title" content={`Artisan Plâtrier & Plaquiste à ${formattedCity} | Parat & Bouey`} />
         <meta property="og:description" content={`Artisan plâtrier et plaquiste jointeur à ${formattedCity} avec plus de 15 ans d'expérience métier. Plâtrerie, placo et rénovation.`} />
-        <meta property="og:url" content={`https://www.plaquiste-arcachon.fr/artisan-plaquiste/${city || 'le-teich'}`} />
+        <meta property="og:url" content={`https://www.plaquiste-arcachon.fr/artisan-plaquiste/${currentSlug}`} />
         <meta property="og:type" content="website" />
+        <script type="application/ld+json">
+          {JSON.stringify(localSchema)}
+        </script>
       </Helmet>
 
       <Header />

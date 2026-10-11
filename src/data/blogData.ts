@@ -15,6 +15,28 @@ export interface BlogPost {
 
 export const DEFAULT_BLOG_POSTS: BlogPost[] = [
   {
+    id: 'post-isolation-thermique-placo-hiver-bassin-arcachon',
+    slug: 'isolation-thermique-interieure-placo-combles-murs-bassin-arcachon-hiver',
+    title: 'Isolation thermique intérieure (ITI) et doublage placo avant l\'hiver : combles, murs froids et économies d\'énergie sur le Bassin d\'Arcachon',
+    category: 'Isolation & Acoustique',
+    excerpt: 'L\'automne et l\'hiver sur le Bassin d\'Arcachon s\'accompagnent d\'un taux d\'humidité maritime élevé et de vents côtiers. Comment isoler efficacement murs froids et combles avec un doublage placo certifié.',
+    readingTime: '6 min de lecture',
+    date: 'Octobre 2026',
+    author: 'Yohann Bouey • Artisan Plaquiste Bassin d\'Arcachon',
+    imageUrl: DEFAULT_GALLERY_IMAGES[4]?.url || DEFAULT_GALLERY_IMAGES[0]?.url || '',
+    content: [
+      "Avec l'arrivée de l'automne et l'approche de l'hiver sur le Bassin d'Arcachon (Gujan-Mestras, Le Teich, La Teste-de-Buch, Arcachon, Biganos), le climat maritime océanique révèle les faiblesses thermiques des logements. Entre l'air marin chargé d'humidité et les coups de vent d'ouest, la sensation de paroi froide sur les murs périphériques entraîne des déperditions d'énergie massives et une facture de chauffage en forte hausse.",
+      "### Comprendre le phénomène de paroi froide dans les habitations du Bassin",
+      "Même avec un chauffage réglé à 20°C, un mur périphérique mal isolé présente une température de surface de seulement 14°C à 15°C. La moyenne ressentie par le corps humain (la température opérative) tombe alors à 17°C, incitant les occupants à surchauffer inutilement. En créant un doublage intérieur sur ossature métallique Stil M48 avec matelas isolant en laine de verre ou laine de roche haute densité, la surface du mur remonte à 19°C. La sensation de confort est immédiate dès les premiers jours de chauffe.",
+      "### Combles perdus et rampants : la priorité numéro 1 des économies d'énergie",
+      "La chaleur montant naturellement, jusqu'à 30 % des calories d'une maison s'échappent par la toiture. Dans les villas traditionnelles ou maisons de plain-pied du Teich ou de Gujan-Mestras, l'aménagement ou le renforcement des combles sous rampants permet d'atteindre une résistance thermique R ≥ 6 à 7 m².K/W. Nous posons une double couche d'isolant croisée, suivie d'une membrane pare-vapeur continue étanche à l'air (DTU 31.2 / RT globale), avant de visser les plaques de plâtre BA13 haute dureté ou feu selon les exigences de la pièce.",
+      "### Gestion de l'humidité maritime et choix des plaques de plâtre",
+      "Sur notre littoral atlantique, l'humidité relative de l'air extérieur dépasse couramment 85 % en période hivernale. Pour éviter tout risque de condensation dans l'épaisseur de l'isolant ou de moisissures derrière les cloisons, le respect des règles de ventilation et l'usage de plaques hydrofuges (vertes) de type BA13 Hydro sont recommandés non seulement dans les salles d'eau et buanderies, mais également sur les pans de murs exposés aux embruns ou semi-enterrés.",
+      "### Un chantier d'isolation propre sans poussière résiduelle",
+      "Réaliser des travaux d'isolation et de plâtrerie en plein automne dans une maison habitée inquiète souvent les propriétaires. Chez Parat & Bouey, nous déployons systématiquement un SAS étanche sous dépression avec extracteur d'air filtré. Vos sols, canapés et objets personnels restent protégés des poussières de laine et d'enduit. En fin de chantier, les bandes à joint sont lissées avec une boîte de finition pour un support immaculé prêt à peindre avant les fêtes de fin d'année."
+    ]
+  },
+  {
     id: 'post-bibliotheque-meuble-placo-sur-mesure',
     slug: 'creation-bibliotheque-meuble-tv-sur-mesure-placo-bassin-arcachon',
     title: 'Création de bibliothèque et meuble TV sur-mesure en placo : agencer son salon sur le Bassin d\'Arcachon',
