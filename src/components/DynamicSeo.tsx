@@ -66,8 +66,8 @@ export default function DynamicSeo() {
       updateMetaTag('property', 'twitter:card', 'summary_large_image');
     }
 
-    // Favicon & Web App Touch Icon
-    if (seo.faviconUrl) {
+    // Favicon & Web App Touch Icon (only if explicitly customized by admin)
+    if (seo.faviconUrl && seo.faviconUrl !== '/icon.svg' && seo.faviconUrl !== '/favicon.ico') {
       const favEl = document.querySelector("link[rel='icon']") as HTMLLinkElement;
       if (favEl) {
         favEl.href = seo.faviconUrl;
