@@ -37,6 +37,28 @@ export const DEFAULT_BLOG_POSTS: BlogPost[] = [
     ]
   },
   {
+    id: 'post-degat-des-eaux-platrerie-peinture-finition',
+    slug: 'degat-des-eaux-reprise-placo-platrerie-peinture-finition-bassin-arcachon',
+    title: 'Dégât des eaux ou petite reprise placo : pourquoi confier la plâtrerie et la peinture de finition au même artisan sur le Bassin d\'Arcachon',
+    category: 'Rénovation & Conseils',
+    excerpt: 'Après une fuite ou un sinistre, trouver un peintre disponible pour 10 m² de plafond réparé relève du parcours du combattant. Pourquoi la solution artisanale clé en main plâtrerie + mise en peinture est idéale.',
+    readingTime: '5 min de lecture',
+    date: 'Octobre 2026',
+    author: 'Yohann Bouey • Artisan Plaquiste Bassin d\'Arcachon',
+    imageUrl: DEFAULT_GALLERY_IMAGES[0]?.url || '',
+    content: [
+      "Sur le Bassin d'Arcachon (Gujan-Mestras, Le Teich, La Teste-de-Buch, Arcachon, Biganos), de nombreux particuliers font face à ce casse-tête : une fuite en toiture ou un dégât des eaux au plafond nécessite de remplacer une plaque de plâtre BA13, de refaire l'isolation et les bandes à joint. Mais une fois le plâtre poncé, une question se pose : qui va repeindre ces 8 à 15 m² de plafond ?",
+      "### Le casse-tête de trouver un peintre pour les petits chantiers",
+      "La plupart des entreprises de peinture en bâtiment privilégient les chantiers d'envergure (maisons neuves complètes, ravalements). Pour un artisan peintre, bloquer une demi-journée de déplacement et de mise en place pour une seule pièce ou un raccord de plafond n'est souvent pas rentable. Résultat pour le client : des semaines d'attente, des refus de devis, ou un tarif prohibitif.",
+      "### Un interlocuteur unique : plâtrerie et mise en peinture dans la foulée",
+      "Pour éviter cette complexité à mes clients particuliers, j'ai fait le choix de proposer la mise en peinture blanche ou de finition directement dans la continuité de mes travaux de plâtrerie. Formé au métier de peintre en bâtiment dès 2010 après ma formation initiale en plâtrerie en 2009, je maîtrise la préparation des fonds, l'application d'impression isolante pour bloquer les auréoles de fuite d'eau, et les passes croisées de peinture mate veloutée anti-traces pour plafond.",
+      "### Pourquoi le plâtrier est le mieux placé pour peindre ses propres bandes",
+      "Il n'y a pas meilleur juge d'un ratissage et de bandes à joint que l'artisan qui va lui-même passer le rouleau dessus. En assurant moi-même la mise en peinture sous lumière rasante, je garantis une planéité absolue : aucune surépaisseur, aucun spectre de bande visible. Si une micro-aspérité subsiste lors de la première couche, elle est instantanément reprise à l'enduit fin de lissage avant la couche de finition.",
+      "### Un périmètre clair et transparent",
+      "Pour conserver toute mon exigence de qualité, cette prestation de peinture est spécifiquement réservée aux suites de mes chantiers de plâtrerie, réfections après dégât des eaux et rénovations intérieures ciblées. Je ne prends pas de chantiers de peinture seule sur maison entière, ni de boiseries extérieures ou finitions décoratives complexes (stuc, effet marbre). C'est la garantie d'un service réactif, d'un devis unique clair et d'un chantier propre et livré clé en main."
+    ]
+  },
+  {
     id: 'post-bibliotheque-meuble-placo-sur-mesure',
     slug: 'creation-bibliotheque-meuble-tv-sur-mesure-placo-bassin-arcachon',
     title: 'Création de bibliothèque et meuble TV sur-mesure en placo : agencer son salon sur le Bassin d\'Arcachon',

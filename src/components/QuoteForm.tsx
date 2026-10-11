@@ -142,7 +142,8 @@ export default function QuoteForm() {
             <option className="bg-[#111]">Aménagement intérieur (Cloisons, Faux-plafonds)</option>
             <option className="bg-[#111]">Plâtrerie Traditionnelle / Rénovation</option>
             <option className="bg-[#111]">Isolation thermique et acoustique</option>
-            <option className="bg-[#111]">Dégâts des eaux</option>
+            <option className="bg-[#111]">Dégâts des eaux (Plâtre & Peinture clé en main)</option>
+            <option className="bg-[#111]">Plâtrerie + Finition Peinture suite de chantier</option>
             <option className="bg-[#111]">Autre</option>
           </select>
         </div>

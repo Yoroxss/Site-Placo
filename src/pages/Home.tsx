@@ -450,8 +450,8 @@ export default function Home() {
                   desc: "Réparation d'enduits, de murs et plafonds en plâtre. Plafonnage. Application de plâtre traditionnel, fixateur ou durcisseur de fond. Eau de chaux."
                 },
                 {
-                  title: "Dégâts des Eaux",
-                  desc: "Remise en état complète après sinistre (inondations, fuites). Inspection, découpe et solution adaptée. Remplacement des isolants et placo. Peinture en option."
+                  title: "Dégâts des Eaux & Finitions",
+                  desc: "Remise en état après sinistre (fuites, infiltrations). Découpe, assainissement, placo et isolation. Finition peinture blanche incluse sur demande pour vos petits volumes."
                 }
               ].map((service, idx) => (
                 <motion.div 
