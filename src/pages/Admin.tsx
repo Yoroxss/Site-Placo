@@ -8,7 +8,7 @@ import {
   PanelLeftClose, PanelLeftOpen, ExternalLink, Pencil, Edit3, Check, 
   Download, RefreshCw, X, Phone, MessageCircle, Mail, Smartphone,
   Share2, LayoutGrid, SlidersHorizontal, CheckCircle2, ChevronRight,
-  ShieldCheck, ArrowUpRight, Car, Calendar, ArrowUp, ArrowDown
+  ShieldCheck, ArrowUpRight, Car, Calendar, ArrowUp, ArrowDown, Wrench
 } from 'lucide-react';
 import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -21,8 +21,9 @@ import LaserQrGenerator from '../components/LaserQrGenerator';
 import MailAdminSection from '../components/MailAdminSection';
 import MileageTracker from '../components/MileageTracker';
 import CalendarRdvAdmin from '../components/CalendarRdvAdmin';
+import OutillageAdminSection from '../components/OutillageAdminSection';
 
-type AdminTab = 'all' | 'traffic' | 'jetons' | 'qr_laser' | 'quotes' | 'reviews' | 'gallery' | 'ba' | 'seo' | 'mail' | 'infra' | 'ik' | 'rdv';
+type AdminTab = 'all' | 'traffic' | 'jetons' | 'qr_laser' | 'quotes' | 'reviews' | 'gallery' | 'ba' | 'seo' | 'mail' | 'infra' | 'ik' | 'rdv' | 'outillage';
 
 export default function Admin() {
   const { adminCode, isAdmin, login, logout } = useAdmin();
@@ -1095,6 +1096,7 @@ export default function Admin() {
     { id: 'mail' as AdminTab, label: 'Messagerie (E-mails)', shortLabel: 'E-mails', icon: Mail },
     { id: 'infra' as AdminTab, label: 'Infrastructure & Coûts', shortLabel: 'Coûts', icon: SlidersHorizontal },
     { id: 'qr_laser' as AdminTab, label: 'Générateur Laser QR', shortLabel: 'Laser QR', icon: QrCode },
+    { id: 'outillage' as AdminTab, label: 'Page Outillage & Médias', shortLabel: 'Outillage', icon: Wrench },
     { id: 'gallery' as AdminTab, label: 'Galerie Photos', shortLabel: 'Galerie', icon: ImagePlus },
     { id: 'ba' as AdminTab, label: 'Avant / Après', shortLabel: 'Av/Ap', icon: Sparkles },
     { id: 'seo' as AdminTab, label: 'SEO & Blog', shortLabel: 'SEO', icon: MessageSquareText },
@@ -2631,6 +2633,14 @@ export default function Admin() {
           </div>
         )}
 
+        {/* =========================================================================
+            8E. PAGE OUTILLAGE & MÉDIAS (PHOTOS & VIDÉO O2SWITCH)
+            ========================================================================= */}
+        {(activeTab === 'all' || activeTab === 'outillage') && (
+          <div className="mb-6 sm:mb-8">
+            <OutillageAdminSection />
+          </div>
+        )}
       </main>
 
       {/* =========================================================================
@@ -2695,7 +2705,7 @@ export default function Admin() {
             <button
               onClick={() => setShowToolsSheet(true)}
               className={`flex flex-col items-center justify-center py-1 rounded-xl transition-all cursor-pointer ${
-                ['qr_laser', 'gallery', 'ba', 'seo', 'all', 'ik', 'rdv'].includes(activeTab) ? 'text-amber-400 font-bold scale-105' : 'text-white/50 hover:text-white'
+                ['qr_laser', 'gallery', 'ba', 'seo', 'all', 'ik', 'rdv', 'outillage'].includes(activeTab) ? 'text-amber-400 font-bold scale-105' : 'text-white/50 hover:text-white'
               }`}
             >
               <LayoutGrid className="w-5 h-5 mb-1" />
@@ -2750,6 +2760,19 @@ export default function Admin() {
                   <div>
                     <h4 className="text-xs font-semibold text-white">Laser QR</h4>
                     <p className="text-[10px] text-white/50">LightBurn & Jetons</p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => { setActiveTab('outillage'); setShowToolsSheet(false); }}
+                  className="p-3.5 rounded-2xl bg-white/5 border border-white/10 hover:border-amber-500/40 text-left flex items-start gap-3 transition-all active:scale-95 cursor-pointer"
+                >
+                  <div className="p-2 rounded-xl bg-amber-500/15 text-amber-300 shrink-0">
+                    <Wrench className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-semibold text-white font-serif text-amber-400">Outillage & Médias</h4>
+                    <p className="text-[10px] text-white/50">Photos & Vidéo o2switch</p>
                   </div>
                 </button>
 

@@ -4,14 +4,27 @@ import { DEFAULT_SEO_CONFIG } from '../data/defaultSeo';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronUp, ChevronDown, HelpCircle, MessageSquare, MousePointer } from 'lucide-react';
 
-export default function FaqSection() {
-  const [faqs, setFaqs] = useState<{ question: string; answer: string }[]>(DEFAULT_SEO_CONFIG.faqs);
+interface FaqSectionProps {
+  customFaqs?: { question: string; answer: string }[];
+  title?: string;
+  subtitle?: string;
+}
+
+export default function FaqSection({ customFaqs, title, subtitle }: FaqSectionProps = {}) {
+  const [faqs, setFaqs] = useState<{ question: string; answer: string }[]>(
+    customFaqs && customFaqs.length > 0 ? customFaqs : DEFAULT_SEO_CONFIG.faqs
+  );
   const [activeIndex, setActiveIndex] = useState<number>(0);
   const [isHovered, setIsHovered] = useState<boolean>(false);
   const carouselRef = useRef<HTMLDivElement | null>(null);
   const lastScrollTime = useRef<number>(0);
 
   useEffect(() => {
+    if (customFaqs && customFaqs.length > 0) {
+      setFaqs(customFaqs);
+      return;
+    }
+
     let isCancelled = false;
     const timer = setTimeout(async () => {
       try {
@@ -117,7 +130,7 @@ export default function FaqSection() {
             className="text-3xl md:text-5xl font-light text-white mb-4" 
             style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic' }}
           >
-            Foire Aux Questions
+            {title || "Foire Aux Questions"}
           </motion.h2>
 
           <motion.p 
@@ -127,7 +140,7 @@ export default function FaqSection() {
             transition={{ delay: 0.2 }}
             className="text-xs md:text-sm text-white/60 max-w-xl mx-auto leading-relaxed flex items-center justify-center gap-2"
           >
-            <span>Naviguez au clavier, avec la molette ou en cliquant sur les cartes</span>
+            <span>{subtitle || "Naviguez au clavier, avec la molette ou en cliquant sur les cartes"}</span>
             <MousePointer className="w-3.5 h-3.5 text-amber-400 hidden sm:inline-block animate-bounce" />
           </motion.p>
         </div>

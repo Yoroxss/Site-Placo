@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Phone, Mail, MapPin, ShieldCheck, CheckCircle2, Clock, Sparkles, Lock, ArrowUpRight, BookOpen } from 'lucide-react';
+import { Phone, Mail, MapPin, ShieldCheck, CheckCircle2, Clock, Sparkles, Lock, ArrowUpRight, BookOpen, Wrench } from 'lucide-react';
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
@@ -169,6 +169,12 @@ export default function Footer() {
                 <Link to="/blog" className="text-amber-300 hover:text-amber-200 transition-colors flex items-center space-x-1.5 min-h-[44px] px-2 py-2.5">
                   <BookOpen className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                   <span className="font-medium">Conseils & Blog</span>
+                </Link>
+              </li>
+              <li>
+                <Link to="/chantier-propre-anti-poussiere" className="hover:text-amber-300 transition-colors flex items-center space-x-1.5 min-h-[44px] px-2 py-2.5">
+                  <Wrench className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span>Outillage & Matériel Pro</span>
                 </Link>
               </li>
               <li>
