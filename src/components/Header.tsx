@@ -79,6 +79,7 @@ export default function Header() {
 
   const isSubmenuActive =
     location.pathname === '/chantier-propre-anti-poussiere' ||
+    location.pathname === '/actualites' ||
     location.pathname.startsWith('/blog');
 
   return (
@@ -181,6 +182,19 @@ export default function Header() {
                         </span>
                       </Link>
 
+                      <Link
+                        to="/actualites"
+                        onClick={() => setSubmenuOpen(false)}
+                        className="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-white/[0.06] transition-colors group"
+                      >
+                        <span className="block text-[11px] uppercase tracking-widest text-white group-hover:text-amber-300 transition-colors">
+                          Actualités Chantiers
+                        </span>
+                        <span className="block text-[10px] normal-case tracking-normal text-white/45 mt-0.5 font-light">
+                          Dernières interventions &amp; nouveautés
+                        </span>
+                      </Link>
+
                       <div className="h-[1px] bg-white/10 my-0.5 mx-2" />
 
                       <Link
@@ -189,10 +203,10 @@ export default function Header() {
                         className="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-white/[0.06] transition-colors group"
                       >
                         <span className="block text-[11px] uppercase tracking-widest text-amber-400/90 group-hover:text-amber-300 transition-colors">
-                          Conseils & Blog
+                          Conseils &amp; Blog
                         </span>
                         <span className="block text-[10px] normal-case tracking-normal text-white/45 mt-0.5 font-light">
-                          Guides pratiques & rénovations
+                          Guides pratiques &amp; rénovations
                         </span>
                       </Link>
                     </div>
@@ -302,6 +316,13 @@ export default function Header() {
                   className="text-sm text-white/80 hover:text-white transition-colors"
                 >
                   Outillage & Matériel
+                </Link>
+                <Link
+                  to="/actualites"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="text-sm text-white/80 hover:text-white transition-colors"
+                >
+                  Actualités Chantiers
                 </Link>
                 <Link
                   to="/blog"

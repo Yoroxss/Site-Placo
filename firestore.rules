@@ -97,6 +97,29 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    function isValidFeedPost(data) {
+      return data.keys().hasAll(['content', 'category', 'mediaType', 'dateLabel', 'publishedAt', 'ctaType', 'adminCode'])
+             && data.keys().hasOnly(['content', 'category', 'location', 'mediaType', 'mediaUrl', 'videoPosterUrl', 'dateLabel', 'publishedAt', 'ctaType', 'ctaUrl', 'sourceTag', 'adminCode'])
+             && data.content is string && data.content.size() > 0 && data.content.size() <= 2000
+             && data.category is string && data.category.size() <= 80
+             && data.mediaType in ['image', 'video', 'none']
+             && data.ctaType in ['learn_more', 'call', 'quote', 'none']
+             && data.dateLabel is string && data.dateLabel.size() <= 40
+             && data.publishedAt is string && data.publishedAt.size() <= 40
+             && (!('location' in data) || (data.location is string && data.location.size() <= 100))
+             && (!('mediaUrl' in data) || (data.mediaUrl is string && data.mediaUrl.size() <= 900000))
+             && (!('videoPosterUrl' in data) || (data.videoPosterUrl is string && data.videoPosterUrl.size() <= 500))
+             && (!('ctaUrl' in data) || (data.ctaUrl is string && data.ctaUrl.size() <= 300))
+             && (!('sourceTag' in data) || (data.sourceTag is string && data.sourceTag.size() <= 60))
+             && data.adminCode == '0107';
+    }
+
+    match /feed_posts/{postId} {
+      allow read: if true;
+      allow create, update: if isValidId(postId) && isValidFeedPost(incoming());
+      allow delete: if isValidId(postId);
+    }
+
     match /appointments/{appId} {
       allow read: if true;
       allow create, update: if incoming().adminCode == '0107';

@@ -18,6 +18,7 @@ const CityPage = lazy(() => import('./pages/CityPage'));
 const BlogPage = lazy(() => import('./pages/BlogPage'));
 const BlogPostPage = lazy(() => import('./pages/BlogPostPage'));
 const ChantierProprePage = lazy(() => import('./pages/ChantierProprePage'));
+const ActualitesPage = lazy(() => import('./pages/ActualitesPage'));
 
 function ScrollToHash() {
   const { pathname, hash } = useLocation();
@@ -69,6 +70,7 @@ export default function App() {
                   <Route path="/artisan-plaquiste/:city" element={<CityPage />} />
                   <Route path="/blog" element={<BlogPage />} />
                   <Route path="/blog/:slug" element={<BlogPostPage />} />
+                  <Route path="/actualites" element={<ActualitesPage />} />
                   <Route path="/chantier-propre-anti-poussiere" element={<ChantierProprePage />} />
                   <Route path="/outillage-anti-poussiere" element={<Navigate to="/chantier-propre-anti-poussiere" replace />} />
 

@@ -17,6 +17,7 @@ const FaqSection = lazy(() => import('../components/FaqSection'));
 const InterventionZone = lazy(() => import('../components/InterventionZone'));
 const ReviewsSection = lazy(() => import('../components/ReviewsSection'));
 const BlogSection = lazy(() => import('../components/BlogSection'));
+const HomeNewsStrip = lazy(() => import('../components/HomeNewsStrip'));
 
 
 import { DEFAULT_GALLERY_IMAGES, DEFAULT_BEFORE_AFTER_ITEMS } from '../data/defaultImages';
@@ -251,6 +252,11 @@ export default function Home() {
           <div className="bg-[#0a0a0a]">
             <GuaranteesBadge />
           </div>
+
+          {/* ACTUALITÉS CHANTIERS (Dernier post visible sans pop-up) */}
+          <Suspense fallback={null}>
+            <HomeNewsStrip />
+          </Suspense>
 
         {/* GALERIE / RÉALISATIONS */}
         <section id="realisations" className="py-16 md:py-32 px-0 md:px-12 border-t border-white/5 relative bg-[#0a0a0a] overflow-hidden">

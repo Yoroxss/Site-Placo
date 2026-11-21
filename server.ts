@@ -1,4 +1,5 @@
 import express from "express";
+import fs from "fs";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
@@ -7,6 +8,8 @@ import nodemailer from "nodemailer";
 import { simpleParser } from "mailparser";
 // @ts-ignore
 import { ImapFlow } from "imapflow";
+import { DEFAULT_FEED_POSTS } from "./src/data/defaultFeedPosts";
+import type { FeedPost } from "./src/types/feedPost";
 
 dotenv.config();
 
@@ -477,6 +480,393 @@ Réponds UNIQUEMENT au format JSON avec cette structure exacte :
     } catch (error: any) {
       console.warn("Blog generation fatal error:", error?.message || error);
       res.status(500).json({ error: "Erreur lors de la génération de l'article." });
+    }
+  });
+
+  // Auto-import a Google Business Profile shared post (share.google / posts.gle / search.google.com)
+  app.post("/api/import-google-post", async (req, res) => {
+    try {
+      const { url } = req.body || {};
+      if (!url || typeof url !== "string" || !url.trim()) {
+        return res.status(400).json({ error: "Veuillez coller un lien de partage Google." });
+      }
+
+      const rawUrl = url.trim();
+      let parsedUrl: URL;
+      try {
+        parsedUrl = new URL(rawUrl);
+      } catch {
+        return res.status(400).json({ error: "Format d'URL invalide." });
+      }
+
+      if (parsedUrl.protocol !== "https:") {
+        return res.status(400).json({ error: "Seuls les liens HTTPS Google sont acceptés." });
+      }
+
+      const isAllowedGoogleHost = (hostname: string): boolean => {
+        const h = hostname.toLowerCase();
+        if (
+          h === "share.google" ||
+          h === "posts.gle" ||
+          h === "g.co" ||
+          h === "goo.gl" ||
+          h === "maps.app.goo.gl" ||
+          h === "local.google.com" ||
+          h === "search.google.com"
+        ) {
+          return true;
+        }
+        return /^(www\.)?google\.(com|fr|co\.uk)$/.test(h);
+      };
+
+      if (!isAllowedGoogleHost(parsedUrl.hostname)) {
+        return res.status(400).json({
+          error: "Lien non reconnu : veuillez utiliser un lien de partage Google (share.google, posts.gle ou search.google.com)."
+        });
+      }
+
+      const decodeHtmlEntities = (str: string): string => {
+        if (!str) return "";
+        const named: Record<string, string> = {
+          "&amp;": "&",
+          "&lt;": "<",
+          "&gt;": ">",
+          "&quot;": "\"",
+          "&#39;": "'",
+          "&apos;": "'",
+          "&nbsp;": " ",
+          "&eacute;": "é",
+          "&egrave;": "è",
+          "&ecirc;": "ê",
+          "&agrave;": "à",
+          "&acirc;": "â",
+          "&ccedil;": "ç",
+          "&ocirc;": "ô",
+          "&icirc;": "î",
+          "&ucirc;": "û",
+          "&ugrave;": "ù",
+          "&rsquo;": "’",
+          "&lsquo;": "‘",
+          "&ldquo;": "«",
+          "&rdquo;": "»",
+          "&laquo;": "«",
+          "&raquo;": "»",
+          "&middot;": "·",
+          "&hellip;": "…"
+        };
+        return str
+          .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => {
+            try {
+              return String.fromCodePoint(parseInt(hex, 16));
+            } catch {
+              return "";
+            }
+          })
+          .replace(/&#(\d+);/g, (_, dec) => {
+            try {
+              return String.fromCodePoint(parseInt(dec, 10));
+            } catch {
+              return "";
+            }
+          })
+          .replace(/&[a-zA-Z0-9]+;/g, (entity) => named[entity] ?? entity);
+      };
+
+      const fetchGoogleMetaHtml = async (startUrl: URL) => {
+        let currentUrl = startUrl;
+        for (let hop = 0; hop < 6; hop++) {
+          if (currentUrl.protocol !== "https:" || !isAllowedGoogleHost(currentUrl.hostname)) {
+            throw new Error("Redirection hors domaine Google refusée par sécurité.");
+          }
+
+          const resp = await fetch(currentUrl.toString(), {
+            redirect: "manual",
+            signal: AbortSignal.timeout(8000),
+            headers: {
+              "User-Agent": "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)",
+              "Accept": "text/html,application/xhtml+xml",
+              "Accept-Language": "fr-FR,fr;q=0.9"
+            }
+          });
+
+          if (resp.status >= 300 && resp.status < 400) {
+            const loc = resp.headers.get("location");
+            if (!loc) break;
+            currentUrl = new URL(loc, currentUrl);
+            continue;
+          }
+
+          const contentType = resp.headers.get("content-type") || "";
+          const buf = Buffer.from(await resp.arrayBuffer());
+          const isLatin1 = /iso-8859-1|latin1|windows-1252/i.test(contentType);
+          const html = isLatin1
+            ? new TextDecoder("iso-8859-1").decode(buf)
+            : new TextDecoder("utf-8").decode(buf);
+
+          return { finalUrl: currentUrl.toString(), html };
+        }
+        throw new Error("Trop de redirections lors de la lecture du lien Google.");
+      };
+
+      const extractMeta = (html: string) => {
+        const metaTags = html.match(/<meta\b[^>]*>/gi) || [];
+        const values: Record<string, string> = {};
+
+        for (const tag of metaTags) {
+          const getAttr = (attr: string) => {
+            const m = tag.match(new RegExp(`${attr}\\s*=\\s*("([^"]*)"|'([^']*)')`, "i"));
+            return m ? (m[2] ?? m[3] ?? "") : "";
+          };
+          const key = (getAttr("property") || getAttr("name") || getAttr("itemprop")).toLowerCase();
+          const content = getAttr("content");
+          if (key && content && !values[key]) {
+            values[key] = decodeHtmlEntities(content);
+          }
+        }
+
+        const rawDesc =
+          values["og:description"] ||
+          values["twitter:description"] ||
+          values["description"] ||
+          "";
+        const cleanDesc = rawDesc
+          .replace(/\r\n/g, "\n")
+          .split("\n")
+          .map((line) => line.trimEnd())
+          .join("\n")
+          .trim();
+
+        return {
+          title: (values["og:title"] || values["twitter:title"] || values["name"] || "").trim(),
+          description: cleanDesc,
+          image: (values["og:image"] || values["twitter:image"] || values["image"] || "").trim()
+        };
+      };
+
+      let result = await fetchGoogleMetaHtml(parsedUrl);
+      let meta = extractMeta(result.html);
+
+      // If user pasted a raw google search URL with ludocid+lpsid and got no description, retry via local/posts endpoint
+      if (!meta.description) {
+        try {
+          const finalParsed = new URL(result.finalUrl);
+          const ludocid = finalParsed.searchParams.get("ludocid");
+          const lpsid = finalParsed.searchParams.get("lpsid");
+          if (ludocid && lpsid) {
+            const directPostUrl = new URL("https://search.google.com/local/posts");
+            directPostUrl.searchParams.set("ludocid", ludocid);
+            directPostUrl.searchParams.set("lpsid", lpsid);
+            const qParam = finalParsed.searchParams.get("q");
+            if (qParam) directPostUrl.searchParams.set("q", qParam);
+            result = await fetchGoogleMetaHtml(directPostUrl);
+            meta = extractMeta(result.html);
+          }
+        } catch {}
+      }
+
+      if (!meta.description && !meta.image) {
+        return res.status(422).json({
+          error:
+            "Impossible de lire le contenu public de ce lien Google. Vérifiez que le lien correspond bien à un post public partagé depuis Google (bouton Partager du post) ou copiez le texte manuellement."
+        });
+      }
+
+      // Verify extracted image host & inspect Content-Disposition date if available
+      let validImageUrl = "";
+      let publishedDate = new Date();
+      let dateDetected = false;
+
+      if (meta.image) {
+        try {
+          const imgParsed = new URL(meta.image);
+          const isGoogleMediaHost = /^(lh\d+\.googleusercontent\.com|geo\d+\.ggpht\.com)$/.test(
+            imgParsed.hostname.toLowerCase()
+          );
+          if (imgParsed.protocol === "https:" && isGoogleMediaHost) {
+            validImageUrl = imgParsed.toString();
+            try {
+              const headRes = await fetch(validImageUrl, {
+                method: "HEAD",
+                signal: AbortSignal.timeout(4000)
+              });
+              const disp = headRes.headers.get("content-disposition") || "";
+              const dateMatch = disp.match(/(\d{4}-\d{2}-\d{2})/);
+              if (dateMatch) {
+                const candidate = new Date(`${dateMatch[1]}T12:00:00.000Z`);
+                if (!Number.isNaN(candidate.getTime())) {
+                  publishedDate = candidate;
+                  dateDetected = true;
+                }
+              }
+            } catch {}
+          }
+        } catch {}
+      }
+
+      const dateLabel = publishedDate.toLocaleDateString("fr-FR", {
+        day: "numeric",
+        month: "short",
+        year: "numeric"
+      });
+
+      const ALLOWED_CATEGORIES = [
+        "Chantier en cours",
+        "Finition & Enduit",
+        "Matériel Pro",
+        "Isolation & Placo",
+        "Dégât des eaux",
+        "Actualité"
+      ];
+
+      // Deterministic classification fallback based on French craft keywords
+      const textLower = meta.description.toLowerCase();
+      let category = "Chantier en cours";
+      if (textLower.includes("dégât") || textLower.includes("sinistre") || textLower.includes("fuite")) {
+        category = "Dégât des eaux";
+      } else if (
+        textLower.includes("ponçage") ||
+        textLower.includes("équipement") ||
+        textLower.includes("outillage") ||
+        textLower.includes("makita") ||
+        textLower.includes("festool") ||
+        textLower.includes("aspiration") ||
+        textLower.includes("machine")
+      ) {
+        category = "Matériel Pro";
+      } else if (
+        textLower.includes("enduit") ||
+        textLower.includes("ratissage") ||
+        textLower.includes("lisse") ||
+        textLower.includes("bande") ||
+        textLower.includes("peinture") ||
+        textLower.includes("finition")
+      ) {
+        category = "Finition & Enduit";
+      } else if (
+        textLower.includes("isol") ||
+        textLower.includes("placo") ||
+        textLower.includes("cloison") ||
+        textLower.includes("ba13") ||
+        textLower.includes("laine")
+      ) {
+        category = "Isolation & Placo";
+      }
+
+      const CITIES = [
+        "Le Teich",
+        "Gujan-Mestras",
+        "Biganos",
+        "La Teste-de-Buch",
+        "Arcachon",
+        "Audenge",
+        "Mios",
+        "Lanton",
+        "Salles",
+        "Andernos-les-Bains",
+        "Marcheprime"
+      ];
+      const matchedCity = CITIES.find((c) => textLower.includes(c.toLowerCase()));
+      let location = matchedCity ? `${matchedCity} · Bassin d’Arcachon` : "Bassin d’Arcachon";
+
+      let ctaType: "learn_more" | "call" | "quote" | "none" = textLower.includes("devis")
+        ? "quote"
+        : textLower.includes("appel")
+        ? "call"
+        : "learn_more";
+      let ctaUrl =
+        category === "Matériel Pro" || textLower.includes("propre") || textLower.includes("poussière")
+          ? "/outillage-materiel"
+          : "/#devis";
+
+      // Enrich classification with Gemini 4 Hydrogen if API key configured
+      if (apiKey && meta.description) {
+        try {
+          const aiPrompt = `Analyse ce post Google Établissement de l'artisan plâtrier-plaquiste "Parat & Bouey" (Bassin d'Arcachon) et détermine les métadonnées adaptées pour le publier sur son site web.
+
+TEXTE DU POST :
+"""
+${meta.description}
+"""
+
+Règles strictes :
+- category : DOIT être EXACTEMENT l'une de ces 6 valeurs : ${ALLOWED_CATEGORIES.join(", ")}
+- location : Si une commune précise du Bassin d'Arcachon est mentionnée, réponds "<Commune> · Bassin d’Arcachon", sinon "Bassin d’Arcachon"
+- ctaType : Choisis "quote" si le post invite à demander un devis ou parler d'un projet, "call" s'il invite à appeler, sinon "learn_more"
+- ctaUrl : Choisis la page la plus pertinente parmi : "/#devis", "/chantier-propre-anti-poussiere", "/outillage-materiel", "/#services", "/#before-after"
+
+Réponds STRICTEMENT en JSON :
+{
+  "category": "...",
+  "location": "...",
+  "ctaType": "quote",
+  "ctaUrl": "/#devis"
+}`;
+
+          const aiRes = await ai.models.generateContent({
+            model: "gemini-4-hydrogen",
+            contents: aiPrompt,
+            config: {
+              responseMimeType: "application/json",
+              temperature: 0.2
+            }
+          });
+
+          const rawJson = aiRes?.text
+            ?.replace(/```json\n?/g, "")
+            .replace(/```\n?/g, "")
+            .trim();
+          if (rawJson) {
+            const parsed = JSON.parse(rawJson);
+            if (parsed.category && ALLOWED_CATEGORIES.includes(parsed.category)) {
+              category = parsed.category;
+            }
+            if (parsed.location && typeof parsed.location === "string" && parsed.location.length <= 80) {
+              location = parsed.location.trim();
+            }
+            if (parsed.ctaType && ["learn_more", "call", "quote", "none"].includes(parsed.ctaType)) {
+              ctaType = parsed.ctaType;
+            }
+            const VALID_CTA_URLS = [
+              "/#devis",
+              "/chantier-propre-anti-poussiere",
+              "/outillage-materiel",
+              "/#services",
+              "/#before-after"
+            ];
+            if (parsed.ctaUrl && VALID_CTA_URLS.includes(parsed.ctaUrl)) {
+              ctaUrl = parsed.ctaUrl;
+            }
+          }
+        } catch (aiErr: any) {
+          console.warn("[Gemini import-google-post] Fallback classification used:", aiErr?.message || aiErr);
+        }
+      }
+
+      return res.json({
+        success: true,
+        post: {
+          content: meta.description,
+          category,
+          location,
+          mediaType: validImageUrl ? "image" : "none",
+          mediaUrl: validImageUrl,
+          dateLabel,
+          publishedAt: publishedDate.toISOString(),
+          ctaType,
+          ctaUrl,
+          sourceTag: "Google Établissement"
+        },
+        meta: {
+          businessTitle: meta.title,
+          dateDetected,
+          resolvedUrl: result.finalUrl
+        }
+      });
+    } catch (err: any) {
+      console.error("Import Google Post error:", err?.message || err);
+      return res.status(500).json({
+        error: err?.message || "Erreur lors de l'importation du post Google."
+      });
     }
   });
 
@@ -1154,15 +1544,311 @@ Réponds STRICTEMENT au format JSON avec la structure exacte suivante :
     res.redirect(301, '/mentions-legales');
   });
 
+  // ==========================================
+  // SEO DYNAMIQUE POUR GOOGLEBOT (SSR FIRESTORE + SITEMAP LIVE)
+  // ==========================================
+  let firebaseWebConfig: { projectId?: string; firestoreDatabaseId?: string; apiKey?: string } = {};
+  try {
+    const cfgRaw = fs.readFileSync(path.join(process.cwd(), "firebase-applet-config.json"), "utf8");
+    firebaseWebConfig = JSON.parse(cfgRaw);
+  } catch (e) {
+    console.warn("[SEO SSR] Could not read firebase-applet-config.json:", e);
+  }
+
+  let seoFeedCache: { posts: FeedPost[]; sectionEnabled: boolean; fetchedAt: number } = {
+    posts: DEFAULT_FEED_POSTS,
+    sectionEnabled: true,
+    fetchedAt: 0
+  };
+  const SEO_CACHE_TTL_MS = 30_000;
+
+  async function getLiveSeoFeedSnapshot(forceRefresh = false): Promise<{ posts: FeedPost[]; sectionEnabled: boolean }> {
+    const now = Date.now();
+    if (!forceRefresh && seoFeedCache.fetchedAt > 0 && now - seoFeedCache.fetchedAt < SEO_CACHE_TTL_MS) {
+      return { posts: seoFeedCache.posts, sectionEnabled: seoFeedCache.sectionEnabled };
+    }
+
+    const { projectId, firestoreDatabaseId, apiKey: fbApiKey } = firebaseWebConfig;
+    if (!projectId || !firestoreDatabaseId || !fbApiKey) {
+      return { posts: DEFAULT_FEED_POSTS, sectionEnabled: true };
+    }
+
+    try {
+      const base = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${firestoreDatabaseId}/documents`;
+
+      const [postsRes, settingRes] = await Promise.all([
+        fetch(`${base}:runQuery?key=${fbApiKey}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: AbortSignal.timeout(3000),
+          body: JSON.stringify({
+            structuredQuery: {
+              from: [{ collectionId: "feed_posts" }],
+              orderBy: [{ field: { fieldPath: "publishedAt" }, direction: "DESCENDING" }],
+              limit: 25
+            }
+          })
+        }),
+        fetch(`${base}/settings/actualites?key=${fbApiKey}`, {
+          signal: AbortSignal.timeout(3000)
+        })
+      ]);
+
+      let sectionEnabled = true;
+      let deletedDefaultIds: string[] = [];
+      if (settingRes.ok) {
+        const settingData: any = await settingRes.json();
+        const fields = settingData?.fields || {};
+        if (typeof fields.enabled?.booleanValue === "boolean") {
+          sectionEnabled = fields.enabled.booleanValue;
+        }
+        const arrVals = fields.deletedDefaultIds?.arrayValue?.values;
+        if (Array.isArray(arrVals)) {
+          deletedDefaultIds = arrVals.map((v: any) => String(v?.stringValue || "")).filter(Boolean);
+        }
+      }
+
+      const firestorePosts: FeedPost[] = [];
+      if (postsRes.ok) {
+        const rows: any = await postsRes.json();
+        if (Array.isArray(rows)) {
+          for (const row of rows) {
+            const docObj = row?.document;
+            if (!docObj?.name || !docObj?.fields) continue;
+            const id = String(docObj.name.split("/").pop() || "");
+            const f = docObj.fields;
+            const mediaTypeRaw = String(f.mediaType?.stringValue || "none");
+            const ctaTypeRaw = String(f.ctaType?.stringValue || "none");
+            firestorePosts.push({
+              id,
+              content: String(f.content?.stringValue || ""),
+              category: String(f.category?.stringValue || "Actualité Chantier"),
+              location: f.location?.stringValue ? String(f.location.stringValue) : undefined,
+              mediaType: (mediaTypeRaw === "image" || mediaTypeRaw === "video" || mediaTypeRaw === "none") ? mediaTypeRaw : "none",
+              mediaUrl: f.mediaUrl?.stringValue ? String(f.mediaUrl.stringValue) : undefined,
+              videoPosterUrl: f.videoPosterUrl?.stringValue ? String(f.videoPosterUrl.stringValue) : undefined,
+              dateLabel: String(f.dateLabel?.stringValue || ""),
+              publishedAt: String(f.publishedAt?.stringValue || new Date().toISOString()),
+              ctaType: (ctaTypeRaw === "learn_more" || ctaTypeRaw === "call" || ctaTypeRaw === "quote" || ctaTypeRaw === "none") ? ctaTypeRaw : "none",
+              ctaUrl: f.ctaUrl?.stringValue ? String(f.ctaUrl.stringValue) : undefined,
+              sourceTag: f.sourceTag?.stringValue ? String(f.sourceTag.stringValue) : undefined
+            });
+          }
+        }
+      }
+
+      const fsIds = new Set(firestorePosts.map((p) => p.id));
+      const deletedSet = new Set(deletedDefaultIds);
+      const remainingDefaults = DEFAULT_FEED_POSTS.filter((d) => !fsIds.has(d.id) && !deletedSet.has(d.id));
+      const merged = [...firestorePosts, ...remainingDefaults].sort((a, b) => {
+        const tA = Date.parse(a.publishedAt || "") || 0;
+        const tB = Date.parse(b.publishedAt || "") || 0;
+        return tB - tA;
+      });
+
+      seoFeedCache = { posts: merged, sectionEnabled, fetchedAt: now };
+      return { posts: merged, sectionEnabled };
+    } catch (err: any) {
+      console.warn("[SEO SSR] Live Firestore fetch skipped:", err?.message || err);
+      return { posts: seoFeedCache.posts, sectionEnabled: seoFeedCache.sectionEnabled };
+    }
+  }
+
+  function escapeHtml(input: string): string {
+    return input
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function sanitizeSeoUrl(raw?: string): string {
+    if (!raw || typeof raw !== "string") return "";
+    const trimmed = raw.trim();
+    if (trimmed.startsWith("/") && !trimmed.startsWith("//")) return trimmed;
+    try {
+      const u = new URL(trimmed);
+      if (u.protocol === "https:" || u.protocol === "http:") return u.toString();
+    } catch {}
+    return "";
+  }
+
+  function injectSeoPostsIntoHtml(html: string, reqPath: string, posts: FeedPost[], sectionEnabled: boolean): string {
+    const cleanPath = reqPath.replace(/\/+$/, "") || "/";
+    if (cleanPath !== "/" && cleanPath !== "/actualites") {
+      return html;
+    }
+
+    let enriched = html;
+
+    if (cleanPath === "/actualites") {
+      enriched = enriched
+        .replace(
+          /<title>[\s\S]*?<\/title>/i,
+          "<title>Actualités Chantiers &amp; Nouveautés | Parat &amp; Bouey - Bassin d&#39;Arcachon</title>"
+        )
+        .replace(
+          /<link rel="canonical" href="[^"]*"\s*\/?>/i,
+          '<link rel="canonical" href="https://www.plaquiste-arcachon.fr/actualites" />'
+        )
+        .replace(
+          /<meta name="description" content="[^"]*"\s*\/?>/i,
+          '<meta name="description" content="Découvrez les dernières actualités chantiers, rénovations placo, finitions peinture et conseils de votre artisan plâtrier-plaquiste Parat &amp; Bouey au Teich et sur le Bassin d&#39;Arcachon." />'
+        )
+        .replace(
+          /<meta property="og:title" content="[^"]*"\s*\/?>/i,
+          '<meta property="og:title" content="Actualités Chantiers &amp; Nouveautés | Parat &amp; Bouey" />'
+        )
+        .replace(
+          /<meta property="og:url" content="[^"]*"\s*\/?>/i,
+          '<meta property="og:url" content="https://www.plaquiste-arcachon.fr/actualites" />'
+        );
+    }
+
+    const postsToEmbed = cleanPath === "/actualites" ? posts.slice(0, 20) : sectionEnabled ? posts.slice(0, 3) : [];
+
+    if (postsToEmbed.length > 0) {
+      const jsonLd = {
+        "@context": "https://schema.org",
+        "@type": "Blog",
+        name: "Actualités Chantiers & Nouveautés | PARAT & BOUEY - Plâtrier Plaquiste",
+        url: "https://www.plaquiste-arcachon.fr/actualites",
+        publisher: {
+          "@type": "LocalBusiness",
+          name: "Parat & Bouey - Artisan Plâtrier Plaquiste",
+          telephone: "+33672159399",
+          address: {
+            "@type": "PostalAddress",
+            streetAddress: "6 Rue Jacques Beynel",
+            addressLocality: "Le Teich",
+            postalCode: "33470",
+            addressCountry: "FR"
+          }
+        },
+        blogPost: postsToEmbed.map((p) => {
+          const safeImg = p.mediaType === "image" ? sanitizeSeoUrl(p.mediaUrl) : sanitizeSeoUrl(p.videoPosterUrl);
+          return {
+            "@type": "BlogPosting",
+            headline: p.content.split("\n")[0].slice(0, 110),
+            articleBody: p.content,
+            datePublished: p.publishedAt,
+            ...(safeImg ? { image: safeImg } : {}),
+            author: { "@type": "Person", name: "Yohann Bouey" }
+          };
+        })
+      };
+      const safeJsonScript = `<script type="application/ld+json">${JSON.stringify(jsonLd).replace(/</g, "\\u003c")}</script>`;
+      enriched = enriched.replace("</head>", `${safeJsonScript}\n  </head>`);
+
+      const articlesHtml = postsToEmbed
+        .map((p) => {
+          const imgUrl = p.mediaType === "image" ? sanitizeSeoUrl(p.mediaUrl) : sanitizeSeoUrl(p.videoPosterUrl);
+          const safeAlt = escapeHtml(`Chantier ${p.location || "Bassin d'Arcachon"} - ${p.dateLabel}`);
+          const safeCta = sanitizeSeoUrl(p.ctaUrl);
+          return `<article style="margin-bottom:24px;padding:20px;border:1px solid rgba(255,255,255,0.1);border-radius:16px;">
+  <div style="font-size:12px;color:#fbbf24;margin-bottom:8px;">
+    <time datetime="${escapeHtml(p.publishedAt)}">${escapeHtml(p.dateLabel)}</time>${p.location ? ` · ${escapeHtml(p.location)}` : ""} · ${escapeHtml(p.category)}
+  </div>
+  ${imgUrl ? `<img src="${escapeHtml(imgUrl)}" alt="${safeAlt}" style="max-width:480px;width:100%;height:auto;border-radius:12px;margin-bottom:12px;" />` : ""}
+  <p style="white-space:pre-line;line-height:1.6;color:#e5e5e5;">${escapeHtml(p.content)}</p>
+  ${safeCta ? `<a href="${escapeHtml(safeCta)}" style="color:#fbbf24;">En savoir plus</a>` : ""}
+</article>`;
+        })
+        .join("\n");
+
+      const preRenderHeading =
+        cleanPath === "/actualites"
+          ? `<h1 style="font-family:Georgia,serif;font-style:italic;font-size:32px;margin-bottom:12px;">Nouveautés &amp; Vie des Chantiers — Parat &amp; Bouey</h1>
+<p style="color:#b3b3b3;margin-bottom:24px;">Publications récentes de votre artisan plâtrier-plaquiste au Teich et sur le Bassin d&#39;Arcachon.</p>`
+          : `<h2 style="font-family:Georgia,serif;font-style:italic;font-size:26px;margin-bottom:12px;">Nouveautés &amp; Vie d&#39;Atelier — Parat &amp; Bouey</h2>`;
+
+      const preRenderHtml = `<main style="max-width:960px;margin:0 auto;padding:48px 24px;background-color:#0a0a0a;color:#ffffff;">
+  <section aria-label="Actualités Chantiers">
+    ${preRenderHeading}
+    ${articlesHtml}
+    <p><a href="/actualites" style="color:#fbbf24;">Voir toutes les actualités chantiers</a></p>
+  </section>
+</main>`;
+
+      enriched = enriched.replace('<div id="root"></div>', `<div id="root">${preRenderHtml}</div>`);
+    }
+
+    return enriched;
+  }
+
+  // Immediate cache invalidation when Admin saves/deletes/toggles a post
+  app.post("/api/seo/refresh-feed-cache", async (_req, res) => {
+    await getLiveSeoFeedSnapshot(true);
+    res.json({ ok: true });
+  });
+
+  // Dynamic sitemap.xml updating <lastmod> automatically from the newest Firebase post
+  app.get("/sitemap.xml", async (_req, res) => {
+    try {
+      const prodSitemap = path.join(process.cwd(), "dist", "sitemap.xml");
+      const devSitemap = path.join(process.cwd(), "public", "sitemap.xml");
+      const sitemapPath = fs.existsSync(prodSitemap) ? prodSitemap : devSitemap;
+      let xml = fs.readFileSync(sitemapPath, "utf8");
+
+      const { posts } = await getLiveSeoFeedSnapshot();
+      const latestIso = posts[0]?.publishedAt;
+      const latestDate =
+        latestIso && !Number.isNaN(Date.parse(latestIso))
+          ? new Date(latestIso).toISOString().slice(0, 10)
+          : new Date().toISOString().slice(0, 10);
+
+      xml = xml.replace(
+        /(<loc>https:\/\/www\.plaquiste-arcachon\.fr\/(?:actualites)?<\/loc>\s*<lastmod>)[^<]*(<\/lastmod>)/g,
+        `$1${latestDate}$2`
+      );
+
+      res.set("Content-Type", "application/xml; charset=utf-8");
+      res.set("Cache-Control", "public, max-age=300");
+      res.send(xml);
+    } catch (err) {
+      console.error("Dynamic sitemap error:", err);
+      res.status(500).send("Sitemap unavailable");
+    }
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
+
+    app.get(["/", "/actualites"], async (req, res, next) => {
+      try {
+        const templatePath = path.join(process.cwd(), "index.html");
+        let html = fs.readFileSync(templatePath, "utf8");
+        html = await vite.transformIndexHtml(req.originalUrl, html);
+        const { posts, sectionEnabled } = await getLiveSeoFeedSnapshot();
+        const finalHtml = injectSeoPostsIntoHtml(html, req.path, posts, sectionEnabled);
+        res.status(200).set({ "Content-Type": "text/html; charset=utf-8" }).end(finalHtml);
+      } catch (e: any) {
+        vite.ssrFixStacktrace(e);
+        next(e);
+      }
+    });
+
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
+
+    app.get(["/", "/actualites"], async (req, res, next) => {
+      try {
+        const indexPath = path.join(distPath, "index.html");
+        const html = fs.readFileSync(indexPath, "utf8");
+        const { posts, sectionEnabled } = await getLiveSeoFeedSnapshot();
+        const finalHtml = injectSeoPostsIntoHtml(html, req.path, posts, sectionEnabled);
+        res.status(200).set({ "Content-Type": "text/html; charset=utf-8" }).end(finalHtml);
+      } catch (e) {
+        next(e);
+      }
+    });
+
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));

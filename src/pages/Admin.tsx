@@ -8,7 +8,7 @@ import {
   PanelLeftClose, PanelLeftOpen, ExternalLink, Pencil, Edit3, Check, 
   Download, RefreshCw, X, Phone, MessageCircle, Mail, Smartphone,
   Share2, LayoutGrid, SlidersHorizontal, CheckCircle2, ChevronRight,
-  ShieldCheck, ArrowUpRight, Car, Calendar, ArrowUp, ArrowDown, Wrench
+  ShieldCheck, ArrowUpRight, Car, Calendar, ArrowUp, ArrowDown, Wrench, Newspaper
 } from 'lucide-react';
 import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -22,8 +22,9 @@ import MailAdminSection from '../components/MailAdminSection';
 import MileageTracker from '../components/MileageTracker';
 import CalendarRdvAdmin from '../components/CalendarRdvAdmin';
 import OutillageAdminSection from '../components/OutillageAdminSection';
+import FeedAdminSection from '../components/FeedAdminSection';
 
-type AdminTab = 'all' | 'traffic' | 'jetons' | 'qr_laser' | 'quotes' | 'reviews' | 'gallery' | 'ba' | 'seo' | 'mail' | 'infra' | 'ik' | 'rdv' | 'outillage';
+type AdminTab = 'all' | 'traffic' | 'jetons' | 'qr_laser' | 'quotes' | 'reviews' | 'gallery' | 'ba' | 'seo' | 'mail' | 'infra' | 'ik' | 'rdv' | 'outillage' | 'actualites';
 
 export default function Admin() {
   const { adminCode, isAdmin, login, logout } = useAdmin();
@@ -1096,6 +1097,7 @@ export default function Admin() {
     { id: 'mail' as AdminTab, label: 'Messagerie (E-mails)', shortLabel: 'E-mails', icon: Mail },
     { id: 'infra' as AdminTab, label: 'Infrastructure & Coûts', shortLabel: 'Coûts', icon: SlidersHorizontal },
     { id: 'qr_laser' as AdminTab, label: 'Générateur Laser QR', shortLabel: 'Laser QR', icon: QrCode },
+    { id: 'actualites' as AdminTab, label: 'Actualités / Posts', shortLabel: 'Posts', icon: Newspaper },
     { id: 'outillage' as AdminTab, label: 'Page Outillage & Médias', shortLabel: 'Outillage', icon: Wrench },
     { id: 'gallery' as AdminTab, label: 'Galerie Photos', shortLabel: 'Galerie', icon: ImagePlus },
     { id: 'ba' as AdminTab, label: 'Avant / Après', shortLabel: 'Av/Ap', icon: Sparkles },
@@ -2641,6 +2643,15 @@ export default function Admin() {
             <OutillageAdminSection />
           </div>
         )}
+
+        {/* =========================================================================
+            8F. ACTUALITÉS CHANTIERS & POSTS (STYLE GOOGLE / FACEBOOK)
+            ========================================================================= */}
+        {(activeTab === 'all' || activeTab === 'actualites') && (
+          <div className="mb-6 sm:mb-8">
+            <FeedAdminSection />
+          </div>
+        )}
       </main>
 
       {/* =========================================================================
@@ -2705,7 +2716,7 @@ export default function Admin() {
             <button
               onClick={() => setShowToolsSheet(true)}
               className={`flex flex-col items-center justify-center py-1 rounded-xl transition-all cursor-pointer ${
-                ['qr_laser', 'gallery', 'ba', 'seo', 'all', 'ik', 'rdv', 'outillage'].includes(activeTab) ? 'text-amber-400 font-bold scale-105' : 'text-white/50 hover:text-white'
+                ['qr_laser', 'gallery', 'ba', 'seo', 'all', 'ik', 'rdv', 'outillage', 'actualites'].includes(activeTab) ? 'text-amber-400 font-bold scale-105' : 'text-white/50 hover:text-white'
               }`}
             >
               <LayoutGrid className="w-5 h-5 mb-1" />
@@ -2750,6 +2761,19 @@ export default function Admin() {
 
               {/* Grid of Tools */}
               <div className="grid grid-cols-2 gap-2.5">
+                <button
+                  onClick={() => { setActiveTab('actualites'); setShowToolsSheet(false); }}
+                  className="p-3.5 rounded-2xl bg-white/5 border border-white/10 hover:border-amber-500/40 text-left flex items-start gap-3 transition-all active:scale-95 cursor-pointer"
+                >
+                  <div className="p-2 rounded-xl bg-amber-500/15 text-amber-400 shrink-0">
+                    <Newspaper className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-semibold text-white font-serif text-amber-400">Actualités / Posts</h4>
+                    <p className="text-[10px] text-white/50">Posts chantiers & Google</p>
+                  </div>
+                </button>
+
                 <button
                   onClick={() => { setActiveTab('qr_laser'); setShowToolsSheet(false); }}
                   className="p-3.5 rounded-2xl bg-white/5 border border-white/10 hover:border-amber-500/40 text-left flex items-start gap-3 transition-all active:scale-95 cursor-pointer"

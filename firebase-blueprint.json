@@ -161,6 +161,26 @@
         "createdAt": { "type": "string", "description": "Timestamp" }
       },
       "required": ["name", "power", "type", "isDefault", "createdAt"]
+    },
+    "FeedPost": {
+      "title": "Chantier News Feed Post",
+      "description": "Short Google Business / Facebook style chantier update post.",
+      "type": "object",
+      "properties": {
+        "content": { "type": "string", "maxLength": 2000 },
+        "category": { "type": "string", "maxLength": 80 },
+        "location": { "type": "string", "maxLength": 100 },
+        "mediaType": { "type": "string", "enum": ["image", "video", "none"] },
+        "mediaUrl": { "type": "string", "maxLength": 900000 },
+        "videoPosterUrl": { "type": "string", "maxLength": 500 },
+        "dateLabel": { "type": "string", "maxLength": 40 },
+        "publishedAt": { "type": "string", "maxLength": 40 },
+        "ctaType": { "type": "string", "enum": ["learn_more", "call", "quote", "none"] },
+        "ctaUrl": { "type": "string", "maxLength": 300 },
+        "sourceTag": { "type": "string", "maxLength": 60 },
+        "adminCode": { "type": "string", "maxLength": 10 }
+      },
+      "required": ["content", "category", "mediaType", "dateLabel", "publishedAt", "ctaType", "adminCode"]
     }
   },
   "firestore": {
@@ -199,6 +219,10 @@
     "site_visits/{visitId}": {
       "schema": "SiteVisit",
       "description": "Comprehensive website traffic analytics and circulation visits."
+    },
+    "feed_posts/{postId}": {
+      "schema": "FeedPost",
+      "description": "Collection of short chantier news posts displayed on the homepage and /actualites."
     }
   }
 }
